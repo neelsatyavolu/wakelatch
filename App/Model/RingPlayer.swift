@@ -23,6 +23,13 @@ final class RingPlayer {
         }
     }
 
+    /// Playing, and the media volume is high enough to wake someone.
+    var isAudible: Bool {
+        player?.isPlaying == true && AVAudioSession.sharedInstance().outputVolume >= Self.minimumVolume
+    }
+
+    private static let minimumVolume: Float = 0.5
+
     /// Quieter while the user works on the challenge.
     func duck(_ ducked: Bool) {
         player?.setVolume(ducked ? 0.25 : 1, fadeDuration: 0.4)

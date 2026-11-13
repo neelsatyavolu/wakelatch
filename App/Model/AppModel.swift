@@ -33,6 +33,9 @@ final class AppModel {
     var bedside = false
     private(set) var scheduleError: String?
     private(set) var syncing = false
+    private var resyncRequested = false
+    /// Alarm IDs iOS reported after the last sync.
+    private(set) var confirmedWithSystem: Set<UUID>?
     /// AlarmKit permission, kept current by `watchAuthorization`.
     private(set) var alarmsAuthorized = false
     /// Screenshot mode: keeps the demo screen up.
@@ -92,7 +95,9 @@ final class AppModel {
 
     /// Replaces scheduled alarms with the next three mornings, keeping a morning already under way.
     func sync() async {
-        guard AlarmService.isAuthorized, !syncing, !demo else { return }
+        guard AlarmService.isAuthorized, !demo else { return }
+        // A change made while a sync is running must not be dropped: run again with the new settings.
+        guard !syncing else { resyncRequested = true; return }
         syncing = true
         // Finish handing alarms to iOS even if the user leaves the app mid-sync.
         let background = UIApplication.shared.beginBackgroundTask(withName: "Schedule alarms")
@@ -100,6 +105,13 @@ final class AppModel {
             syncing = false
             UIApplication.shared.endBackgroundTask(background)
         }
+        repeat {
+            resyncRequested = false
+            await syncOnce()
+        } while resyncRequested
+    }
+
+    private func syncOnce() async {
         let now = Date.now
         closeFinishedMornings(now: now)
         let active = activeMorning(at: now)
@@ -131,6 +143,14 @@ final class AppModel {
         storage.save(rings, key: "rings")
         let known = Set(rings.map(\.id))
         for id in AlarmService.systemAlarmIDs() where !known.contains(id) { AlarmService.cancel(id) }
+        confirmedWithSystem = AlarmService.systemAlarmIDs()
+    }
+
+    /// Rings of the next morning that iOS really has on its books (nil before the first sync).
+    var confirmedNextRings: Int? {
+        guard let confirmed = confirmedWithSystem, let day = nextMorning?.day else { return nil }
+        let morning = MorningPlan.idealDate(on: day, times: settings.times, calendar: calendar)
+        return rings.filter { $0.morning == morning && confirmed.contains($0.id) }.count
     }
 
     /// A morning whose latch has started and isn't finished.
@@ -186,8 +206,13 @@ final class AppModel {
     func alarmsRinging(_ ids: Set<UUID>, appActive: Bool) {
         let ours = ids.intersection(rings.map(\.id))
         guard appActive, !ours.isEmpty else { return }
-        for id in ours { AlarmService.silence(id) }
         evaluate(sounding: ours)
+        guard case let .ringing(ring, _) = screen else { return }
+        // The system alarm is only silenced once Wakelatch's own sound is really playing loud enough;
+        // otherwise both ring, which is better than neither.
+        RingPlayer.shared.play(nudge: ring.kind == .nudge)
+        guard RingPlayer.shared.isAudible else { return }
+        for id in ours { AlarmService.silence(id) }
     }
 
     func snooze(_ ring: ScheduledRing) {

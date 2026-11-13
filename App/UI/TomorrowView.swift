@@ -91,16 +91,38 @@ struct TomorrowView: View {
         if let problem = model.timesProblem {
             Label(problem, systemImage: "exclamationmark.triangle").foregroundStyle(Theme.face)
         } else if let plan = model.nextMorning?.rings, let first = plan.first, let last = plan.last {
-            Text("Rings from \(first.date.shortTime) to \(last.date.shortTime) if you don't solve it. \(plan.count) rings.")
-                .font(.subheadline.monospacedDigit())
-                .foregroundStyle(Theme.graphite)
-                .frame(maxWidth: .infinity)
-                .multilineTextAlignment(.center)
+            VStack(spacing: 6) {
+                Text("Rings from \(first.date.shortTime) to \(last.date.shortTime) if you don't solve it. \(plan.count) rings.")
+                    .foregroundStyle(Theme.graphite)
+                alarmCheck(expected: plan.filter { $0.date > .now }.count)
+            }
+            .font(.subheadline.monospacedDigit())
+            .frame(maxWidth: .infinity)
+            .multilineTextAlignment(.center)
         } else {
             Text("No alarm is set.")
                 .font(.subheadline)
                 .foregroundStyle(Theme.graphite)
                 .frame(maxWidth: .infinity)
+        }
+    }
+
+    /// What iOS really has scheduled, so a failed hand-off never hides behind the plan.
+    @ViewBuilder private func alarmCheck(expected: Int) -> some View {
+        if let error = model.scheduleError {
+            Label(error, systemImage: "exclamationmark.triangle").foregroundStyle(Theme.face)
+                .accessibilityIdentifier("tomorrow.alarmCheck")
+        } else if model.alarmsAuthorized, !model.syncing, let confirmed = model.confirmedNextRings {
+            if confirmed >= expected {
+                Label("All \(confirmed) set with iOS", systemImage: "checkmark")
+                    .foregroundStyle(Theme.graphite)
+                    .accessibilityIdentifier("tomorrow.alarmCheck")
+            } else {
+                Label("Only \(confirmed) of \(expected) are set with iOS. Close and reopen Wakelatch.",
+                      systemImage: "exclamationmark.triangle")
+                    .foregroundStyle(Theme.face)
+                    .accessibilityIdentifier("tomorrow.alarmCheck")
+            }
         }
     }
 
