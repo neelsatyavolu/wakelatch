@@ -24,13 +24,22 @@
 	<false/>
 	<key>NSAlarmKitUsageDescription</key>
 	<string>Wakelatch schedules alarms that keep ringing until you finish a challenge.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>The eyes-open challenge uses the front camera to check your eyes are open. Nothing is recorded or sent anywhere.</string>
+	<key>NSMotionUsageDescription</key>
+	<string>The walking challenge counts your steps. Nothing leaves your phone.</string>
 	<key>NSSupportsLiveActivities</key>
 	<true/>
 	<key>UILaunchScreen</key>
-	<dict/>
+	<dict>
+		<key>UIColorName</key>
+		<string>LaunchBackground</string>
+	</dict>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
 	</array>
+	<key>UIUserInterfaceStyle</key>
+	<string>Dark</string>
 </dict>
 </plist>

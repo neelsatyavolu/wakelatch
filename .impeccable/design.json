@@ -1,135 +1,178 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-11-12T00:00:00Z",
+  "generatedAt": "2026-11-12T19:00:00Z",
   "title": "Design System: Wakelatch",
   "extensions": {
     "platform": "ios",
     "appearance": "dark-only",
     "colorMeta": {
-      "enamel": { "role": "neutral", "displayName": "Enamel Black", "canonical": "#0B0D10", "source": "Theme.enamel", "tonalRamp": ["#0B0D10", "#15181D", "#23272E", "#343941", "#4B5058", "#6A7079", "#9AA0A8", "#D5D8DC"] },
+      "enamel": { "role": "neutral", "displayName": "Enamel Black", "canonical": "#0B0D10", "source": "Theme.enamel; LaunchBackground.colorset", "tonalRamp": ["#0B0D10", "#15181D", "#23272E", "#343941", "#4B5058", "#6A7079", "#9AA0A8", "#D5D8DC"] },
+      "bedside-black": { "role": "neutral", "displayName": "Bedside Black", "canonical": "#000000", "source": "NightView .background(Color.black)", "usage": "bedside mode only", "tonalRamp": ["#000000", "#0A0A0A", "#161616", "#262626", "#3A3A3A", "#545454", "#7A7A7A", "#B0B0B0"] },
       "face": { "role": "primary", "displayName": "Clock-Face White", "canonical": "#F2F2EE", "source": "Theme.face", "tonalRamp": ["#1E1E1C", "#3A3A37", "#5A5A56", "#7C7C77", "#A0A09A", "#C4C4BE", "#E2E2DD", "#F2F2EE"] },
       "graphite": { "role": "neutral", "displayName": "Graphite", "canonical": "#8A8F98", "source": "Theme.graphite", "tonalRamp": ["#23252A", "#3A3D43", "#53575E", "#6E737B", "#8A8F98", "#A7ABB2", "#C6C9CE", "#E4E6E9"] },
       "signal": { "role": "tertiary", "displayName": "Signal Red", "canonical": "#E1251B", "source": "Theme.signal", "usage": "latched state only; never text", "tonalRamp": ["#3A0907", "#62110C", "#8C1912", "#B81F16", "#E1251B", "#EC5A4F", "#F4928A", "#FAC9C4"] },
       "face-well": { "role": "neutral", "displayName": "Face Well", "canonical": "Theme.face.opacity(0.08)", "composite": "#1D1F22 on enamel", "tonalRamp": ["#121417", "#16181B", "#1A1C1F", "#1D1F22", "#24262A", "#2C2E32", "#35373A", "#3F4144"] },
-      "face-disabled": { "role": "neutral", "displayName": "Face Disabled", "canonical": "Theme.face.opacity(0.35)", "composite": "#5C5D5F on enamel", "tonalRamp": ["#2A2B2D", "#36373A", "#424446", "#4F5052", "#5C5D5F", "#6C6D6F", "#7E7F81", "#919294"] }
+      "face-chip-on": { "role": "neutral", "displayName": "Chip On", "canonical": "Theme.face.opacity(0.16)", "composite": "#323335 on enamel", "tonalRamp": ["#1D1F22", "#24262A", "#2B2D30", "#323335", "#3A3B3D", "#454648", "#525355", "#606163"] },
+      "face-chip-off": { "role": "neutral", "displayName": "Chip Off", "canonical": "Theme.face.opacity(0.04)", "composite": "#141619 on enamel", "tonalRamp": ["#0B0D10", "#0F1114", "#121417", "#141619", "#17191C", "#1B1D20", "#202225", "#26282B"] },
+      "face-disabled": { "role": "neutral", "displayName": "Face Disabled", "canonical": "Theme.face.opacity(0.35)", "composite": "#5C5D5F on enamel", "tonalRamp": ["#2A2B2D", "#36373A", "#424446", "#4F5052", "#5C5D5F", "#6C6D6F", "#7E7F81", "#919294"] },
+      "system-red": { "role": "neutral", "displayName": "System Red (destructive)", "canonical": "UIColor.systemRed (dark)", "usage": "role: .destructive only; system-owned, HIG exception to the Signal Rule", "tonalRamp": ["#3F0D0A", "#6B1611", "#981F18", "#C8291F", "#FF453A", "#FF6F66", "#FF9C95", "#FFCBC7"] }
     },
     "typographyMeta": {
-      "display": { "displayName": "Display", "purpose": "The challenge problem. Bold, tabular, one line, minimum scale 0.6." },
-      "numeral-entry": { "displayName": "Numeral entry", "purpose": "The typed answer, centred, tabular." },
-      "headline": { "displayName": "Headline", "purpose": "The one morning sentence, centred, semibold." },
-      "title": { "displayName": "Title", "purpose": "Home status line." },
-      "label": { "displayName": "Label", "purpose": "Slab button label." },
+      "clock-display": { "displayName": "Clock display", "purpose": "Current time on the ringing screen. @ScaledMetric(relativeTo: .largeTitle) 72, capped at 110; minimum scale 0.5." },
+      "bedside-clock": { "displayName": "Bedside clock", "purpose": "Time in bedside mode. @ScaledMetric 64, capped at 96." },
+      "count-display": { "displayName": "Count display", "purpose": "Step and shake counts. @ScaledMetric 96, capped at 140; numeric content transition." },
+      "display": { "displayName": "Display", "purpose": "Math problem, Released., Still up?, onboarding headings." },
+      "time-display": { "displayName": "Time display", "purpose": "Ideal and Deadline in the time cards." },
+      "numeral-entry": { "displayName": "Numeral entry", "purpose": "Typed math answer, centred, tabular." },
+      "headline": { "displayName": "Headline", "purpose": "The one morning sentence and challenge titles." },
+      "title": { "displayName": "Title", "purpose": "Released facts, bedside first-ring line, counter units, onboarding lead." },
+      "label": { "displayName": "Label", "purpose": "Slab label, onboarding row titles." },
       "body": { "displayName": "Body", "purpose": "List rows and native controls." },
-      "body-secondary": { "displayName": "Body secondary", "purpose": "Next/last ring line and wrong-answer line, graphite, tabular." },
-      "caption": { "displayName": "Caption", "purpose": "Log lines, probe results, the error label. Tabular." }
+      "body-secondary": { "displayName": "Body secondary", "purpose": "Home summary, challenge ring line, card labels, day chips, picker summaries." },
+      "footnote": { "displayName": "Footnote", "purpose": "Skip link, bedside exit line, time-sheet notes." },
+      "caption": { "displayName": "Caption", "purpose": "Line under each time card value." }
     },
-    "typeNotes": "Sizes are points at the default Large content size; all roles scale with Dynamic Type. At accessibility sizes the challenge dial is fixed at 140pt.",
+    "typeNotes": "Sizes are points at the default Large content size. Text styles scale with Dynamic Type; the three big numbers use @ScaledMetric relative to .largeTitle with caps (72 to 110, 64 to 96, 96 to 140).",
     "shadows": [],
     "motion": [
       { "name": "slab-press", "value": "easeOut 0.12s; scale 0.98, opacity 0.85", "purpose": "Slab button press." },
-      { "name": "disc-release", "value": "spring 0.5s; rotate 110deg clockwise about dial centre, opacity 1 to 0", "purpose": "Signal disc leaves twelve when the challenge is solved. Paired with .sensoryFeedback(.success)." },
-      { "name": "disc-release-reduced", "value": "easeOut 0.2s; opacity crossfade", "purpose": "Release under Reduce Motion." },
-      { "name": "disc-arm", "value": "spring 0.5s", "purpose": "Disc appears or leaves on home when the chain is armed or cancelled." },
-      { "name": "release-hold", "value": "1s", "purpose": "Delay between release and dismissing the challenge cover." },
-      { "name": "wrong-answer", "value": "haptic .error; new problem; graphite feedback line", "purpose": "Wrong answer feedback." }
+      { "name": "disc-release", "value": "spring 0.5s (0.2s delay on Released); rotate 110deg clockwise about dial centre, opacity 1 to 0", "purpose": "Signal disc leaves twelve. Paired with .sensoryFeedback(.success)." },
+      { "name": "disc-release-reduced", "value": "opacity crossfade", "purpose": "Release and arming under Reduce Motion." },
+      { "name": "onboarding-step", "value": "easeOut 0.2s", "purpose": "Onboarding step change." },
+      { "name": "count-tick", "value": "contentTransition(.numericText()); light impact haptic per shake", "purpose": "Counter challenges." },
+      { "name": "eyes-progress", "value": "linear 0.2s", "purpose": "Eyes-open progress ring." },
+      { "name": "wrong-answer", "value": "haptic .error; new problem; graphite feedback line in reserved space", "purpose": "Wrong answer feedback." }
     ],
     "breakpoints": [
-      { "name": "accessibility-type", "value": "dynamicTypeSize.isAccessibilitySize", "purpose": "Challenge dial 220pt to 140pt; top padding 24pt to 8pt." }
+      { "name": "accessibility-type", "value": "dynamicTypeSize.isAccessibilitySize", "purpose": "Challenge dial 140pt to 96pt." }
     ],
-    "openItems": ["Increase Contrast variants are not built yet.", "No app icon yet."]
+    "sound": {
+      "systemAlarm": "AlarmKit .default sound. A custom sound crashed SpringBoard's tone player in the simulator; do not set one.",
+      "inApp": "Synthesized chime.caf and nudge.caf from scripts/make-sounds.py, played on ringing and ducked during the challenge."
+    },
+    "openItems": [
+      "The math and phrase challenges still place their Submit slab inside the scrolling content; at accessibility sizes the number pad covers it (math auto-checks, so the task still completes). Drift from the One Slab Rule, not a pattern.",
+      "Increase Contrast variants of the colours are not built."
+    ]
   },
   "components": [
     {
       "name": "Slab Button",
       "kind": "button",
       "refersTo": "button-slab",
-      "description": "The one custom button style: clock-white slab, black label, presses down. Primary action only, pinned in the bottom safe-area inset.",
-      "html": "<div class=\"ds-slab-wrap\"><button class=\"ds-slab\">Arm latch</button></div>",
-      "css": ".ds-slab-wrap { background: #0B0D10; padding: 12px 20px; } .ds-slab { display: block; width: 100%; min-height: 56px; border: none; border-radius: 12px; background: #F2F2EE; color: #0B0D10; font: 600 17px/22px -apple-system, system-ui, sans-serif; cursor: pointer; transition: transform 0.12s ease-out, opacity 0.12s ease-out; } .ds-slab:hover { opacity: 0.95; } .ds-slab:active { transform: scale(0.98); opacity: 0.85; } .ds-slab:focus-visible { outline: 2px solid #F2F2EE; outline-offset: 3px; }"
+      "description": "The one custom button style: clock-white slab, black label, presses down. One per screen, in the bottom safe-area bar or inset, with the text button under it.",
+      "html": "<div class=\"ds-slab-wrap\"><button class=\"ds-slab\">Start challenge</button><button class=\"ds-textbtn\">Snooze until 7:07 AM</button></div>",
+      "css": ".ds-slab-wrap { background: #0B0D10; padding: 12px 24px 8px; display: flex; flex-direction: column; gap: 8px; } .ds-slab { display: block; width: 100%; min-height: 56px; border: none; border-radius: 12px; background: #F2F2EE; color: #0B0D10; font: 600 17px/22px -apple-system, system-ui, sans-serif; cursor: pointer; transition: transform 0.12s ease-out, opacity 0.12s ease-out; } .ds-slab:hover { opacity: 0.95; } .ds-slab:active { transform: scale(0.98); opacity: 0.85; } .ds-slab:focus-visible { outline: 2px solid #F2F2EE; outline-offset: 3px; } .ds-textbtn { width: 100%; min-height: 44px; border: none; background: none; color: #F2F2EE; font: 400 17px/22px -apple-system, system-ui, sans-serif; font-variant-numeric: tabular-nums; cursor: pointer; } .ds-textbtn:hover { opacity: 0.8; } .ds-textbtn:focus-visible { outline: 2px solid #F2F2EE; outline-offset: 2px; border-radius: 12px; }"
     },
     {
       "name": "Slab Button (disabled)",
       "kind": "button",
       "refersTo": "button-slab-disabled",
       "description": "Disabled slab: fill drops to 35% white, label stays enamel.",
-      "html": "<div class=\"ds-slab-wrap\"><button class=\"ds-slab-off\" disabled>Submit answer</button></div>",
-      "css": ".ds-slab-wrap { background: #0B0D10; padding: 12px 24px; } .ds-slab-off { display: block; width: 100%; min-height: 56px; border: none; border-radius: 12px; background: rgba(242,242,238,0.35); color: #0B0D10; font: 600 17px/22px -apple-system, system-ui, sans-serif; }"
+      "html": "<div class=\"ds-slab-wrap\"><button class=\"ds-slab-off\" disabled>Bedside mode</button></div>",
+      "css": ".ds-slab-wrap { background: #0B0D10; padding: 12px 20px; } .ds-slab-off { display: block; width: 100%; min-height: 56px; border: none; border-radius: 12px; background: rgba(242,242,238,0.35); color: #0B0D10; font: 600 17px/22px -apple-system, system-ui, sans-serif; }"
+    },
+    {
+      "name": "Time Cards",
+      "kind": "card",
+      "refersTo": "time-card",
+      "description": "Ideal and Deadline side by side on the face well: graphite label with chevron, large tabular time, graphite caption. Tapping opens the time sheet.",
+      "html": "<div class=\"ds-cards\"><button class=\"ds-card\"><span class=\"ds-card-top\"><span>Ideal</span><svg width=\"10\" height=\"14\" viewBox=\"0 0 10 14\" aria-hidden=\"true\"><path d=\"M2 1l6 6-6 6\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg></span><span class=\"ds-card-time\">6:40 AM</span><span class=\"ds-card-cap\">When you'd like to be up</span></button><button class=\"ds-card\"><span class=\"ds-card-top\"><span>Deadline</span><svg width=\"10\" height=\"14\" viewBox=\"0 0 10 14\" aria-hidden=\"true\"><path d=\"M2 1l6 6-6 6\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg></span><span class=\"ds-card-time\">7:10 AM</span><span class=\"ds-card-cap\">When you must be up</span></button></div>",
+      "css": ".ds-cards { background: #0B0D10; padding: 16px 20px; display: flex; gap: 12px; font-family: -apple-system, system-ui, sans-serif; } .ds-card { flex: 1; display: flex; flex-direction: column; gap: 4px; padding: 14px; border: none; border-radius: 12px; background: rgba(242,242,238,0.08); text-align: left; cursor: pointer; transition: background 0.12s ease-out; } .ds-card:hover { background: rgba(242,242,238,0.11); } .ds-card:focus-visible { outline: 2px solid #F2F2EE; outline-offset: 2px; } .ds-card-top { display: flex; justify-content: space-between; align-items: center; color: #8A8F98; font: 600 15px/20px inherit; } .ds-card-time { color: #F2F2EE; font: 600 34px/41px -apple-system, system-ui, sans-serif; font-variant-numeric: tabular-nums; white-space: nowrap; } .ds-card-cap { color: #8A8F98; font: 400 12px/16px -apple-system, system-ui, sans-serif; }"
+    },
+    {
+      "name": "Weekday Chips",
+      "kind": "chip",
+      "refersTo": "day-chip-selected",
+      "description": "Repeat days. Selected: face at 16% with a 1.5pt face outline and face letter. Unselected: face at 4% with a graphite letter.",
+      "html": "<div class=\"ds-chips\" role=\"group\" aria-label=\"Repeat days\"><button class=\"ds-chip\" aria-pressed=\"false\" aria-label=\"Sunday\">S</button><button class=\"ds-chip on\" aria-pressed=\"true\" aria-label=\"Monday\">M</button><button class=\"ds-chip on\" aria-pressed=\"true\" aria-label=\"Tuesday\">T</button><button class=\"ds-chip on\" aria-pressed=\"true\" aria-label=\"Wednesday\">W</button><button class=\"ds-chip on\" aria-pressed=\"true\" aria-label=\"Thursday\">T</button><button class=\"ds-chip on\" aria-pressed=\"true\" aria-label=\"Friday\">F</button><button class=\"ds-chip\" aria-pressed=\"false\" aria-label=\"Saturday\">S</button></div>",
+      "css": ".ds-chips { background: #1C1C1E; padding: 12px 16px; display: flex; gap: 6px; border-radius: 26px; } .ds-chip { flex: 1; min-height: 44px; border-radius: 12px; border: 1.5px solid transparent; background: rgba(242,242,238,0.04); color: #8A8F98; font: 600 15px/20px -apple-system, system-ui, sans-serif; cursor: pointer; } .ds-chip.on { background: rgba(242,242,238,0.16); border-color: #F2F2EE; color: #F2F2EE; } .ds-chip:hover { background: rgba(242,242,238,0.08); } .ds-chip.on:hover { background: rgba(242,242,238,0.2); } .ds-chip:focus-visible { outline: 2px solid #F2F2EE; outline-offset: 2px; }"
+    },
+    {
+      "name": "Alarm On Toggle",
+      "kind": "input",
+      "refersTo": "toggle-alarm",
+      "description": "System toggle tinted graphite so the white knob reads against the on-track.",
+      "html": "<div class=\"ds-tog-row\"><span>Alarm on</span><button class=\"ds-tog\" role=\"switch\" aria-checked=\"true\" aria-label=\"Alarm on\"><span></span></button></div>",
+      "css": ".ds-tog-row { background: #1C1C1E; color: #F2F2EE; padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; font: 400 17px/22px -apple-system, system-ui, sans-serif; border-radius: 26px; } .ds-tog { position: relative; width: 64px; height: 28px; border: none; border-radius: 14px; background: #8A8F98; cursor: pointer; } .ds-tog span { position: absolute; top: 2px; right: 2px; width: 38px; height: 24px; border-radius: 12px; background: #FFFFFF; transition: right 0.2s ease-out; } .ds-tog[aria-checked=\"false\"] { background: #39393D; } .ds-tog[aria-checked=\"false\"] span { right: 24px; } .ds-tog:focus-visible { outline: 2px solid #F2F2EE; outline-offset: 2px; }"
     },
     {
       "name": "Answer Field",
       "kind": "input",
       "refersTo": "answer-field",
-      "description": "Borderless numeric field on a face well, centred tabular digits, graphite placeholder.",
+      "description": "Borderless numeric field on the face well, centred tabular digits, graphite placeholder, graphite wrong-answer line in reserved space.",
       "html": "<div class=\"ds-field-wrap\"><input class=\"ds-answer\" inputmode=\"numeric\" placeholder=\"Answer\" aria-label=\"Answer\"><p class=\"ds-feedback\">Not it. New problem.</p></div>",
-      "css": ".ds-field-wrap { background: #0B0D10; padding: 24px; display: flex; flex-direction: column; gap: 12px; } .ds-answer { width: 100%; padding: 12px 0; border: none; border-radius: 12px; background: rgba(242,242,238,0.08); color: #F2F2EE; caret-color: #F2F2EE; text-align: center; font: 400 28px/34px -apple-system, system-ui, sans-serif; font-variant-numeric: tabular-nums; } .ds-answer::placeholder { color: #8A8F98; } .ds-answer:focus-visible { outline: none; background: rgba(242,242,238,0.12); } .ds-feedback { margin: 0; text-align: center; color: #8A8F98; font: 400 15px/20px -apple-system, system-ui, sans-serif; }"
+      "css": ".ds-field-wrap { background: #0B0D10; padding: 24px; display: flex; flex-direction: column; gap: 20px; } .ds-answer { width: 100%; box-sizing: border-box; padding: 14px; border: none; border-radius: 12px; background: rgba(242,242,238,0.08); color: #F2F2EE; caret-color: #F2F2EE; text-align: center; font: 400 28px/34px -apple-system, system-ui, sans-serif; font-variant-numeric: tabular-nums; } .ds-answer::placeholder { color: #8A8F98; } .ds-answer:focus-visible { outline: none; background: rgba(242,242,238,0.12); } .ds-feedback { margin: 0; text-align: center; color: #8A8F98; font: 400 17px/22px -apple-system, system-ui, sans-serif; }"
     },
     {
       "name": "Station Dial",
       "kind": "custom",
-      "refersTo": "station-dial",
-      "description": "Signature: 60 bar indices (white majors, graphite minors) with the red signal disc parked at twelve while latched. Hover shows the release: the disc swings 110 degrees clockwise and fades.",
-      "html": "<div class=\"ds-dial-wrap\"><div class=\"ds-dial\" role=\"img\" aria-label=\"Latched. 7 rings scheduled.\"><div class=\"ds-signal\"><span class=\"ds-stem\"></span><span class=\"ds-disc\"></span><span class=\"ds-hub\"></span></div></div></div>",
-      "css": ".ds-dial-wrap { background: #0B0D10; padding: 24px; display: flex; justify-content: center; } .ds-dial { position: relative; width: 220px; height: 220px; } .ds-dial::before, .ds-dial::after { content: ''; position: absolute; inset: 0; border-radius: 50%; } .ds-dial::before { background: repeating-conic-gradient(from -0.5deg, #8A8F98 0deg 1deg, transparent 1deg 6deg); -webkit-mask: radial-gradient(closest-side, transparent 89%, #000 89.5%, #000 96%, transparent 96.5%); mask: radial-gradient(closest-side, transparent 89%, #000 89.5%, #000 96%, transparent 96.5%); } .ds-dial::after { background: repeating-conic-gradient(from -1.5deg, #F2F2EE 0deg 3deg, transparent 3deg 30deg); -webkit-mask: radial-gradient(closest-side, transparent 76%, #000 76.5%, #000 96%, transparent 96.5%); mask: radial-gradient(closest-side, transparent 76%, #000 76.5%, #000 96%, transparent 96.5%); } .ds-signal { position: absolute; inset: 0; z-index: 1; transition: transform 0.5s cubic-bezier(0.34, 1.2, 0.64, 1), opacity 0.5s ease-out; } .ds-signal span { position: absolute; background: #E1251B; left: 50%; transform: translateX(-50%); } .ds-stem { top: 17.5%; height: 45%; width: 1.25%; } .ds-disc { top: 15%; width: 12%; height: 12%; border-radius: 50%; } .ds-hub { top: 48%; width: 4%; height: 4%; border-radius: 50%; } .ds-dial:hover .ds-signal { transform: rotate(110deg); opacity: 0; } @media (prefers-reduced-motion: reduce) { .ds-signal { transition: opacity 0.2s ease-out; } .ds-dial:hover .ds-signal { transform: none; opacity: 0; } }"
+      "refersTo": "station-dial-ringing",
+      "description": "Signature: 60 bar indices (white majors, graphite minors), the red signal disc parked at twelve while latched, the sounding ring's tick in red. Hover shows the release: the disc swings 110 degrees clockwise and fades.",
+      "html": "<div class=\"ds-dial-wrap\"><div class=\"ds-dial\" role=\"img\" aria-label=\"Latched. 20 rings scheduled.\"><span class=\"ds-tick\"></span><div class=\"ds-signal\"><span class=\"ds-stem\"></span><span class=\"ds-disc\"></span><span class=\"ds-hub\"></span></div></div></div>",
+      "css": ".ds-dial-wrap { background: #0B0D10; padding: 24px; display: flex; justify-content: center; } .ds-dial { position: relative; width: 200px; height: 200px; } .ds-dial::before, .ds-dial::after { content: ''; position: absolute; inset: 0; border-radius: 50%; } .ds-dial::before { background: repeating-conic-gradient(from -0.5deg, #8A8F98 0deg 1deg, transparent 1deg 6deg); -webkit-mask: radial-gradient(closest-side, transparent 89%, #000 89.5%, #000 96%, transparent 96.5%); mask: radial-gradient(closest-side, transparent 89%, #000 89.5%, #000 96%, transparent 96.5%); } .ds-dial::after { background: repeating-conic-gradient(from -1.5deg, #F2F2EE 0deg 3deg, transparent 3deg 30deg); -webkit-mask: radial-gradient(closest-side, transparent 76%, #000 76.5%, #000 96%, transparent 96.5%); mask: radial-gradient(closest-side, transparent 76%, #000 76.5%, #000 96%, transparent 96.5%); } .ds-tick { position: absolute; left: 50%; top: 13.5%; width: 5%; height: 10%; background: #E1251B; transform-origin: 50% 365%; transform: translateX(-50%) rotate(135deg); } .ds-signal { position: absolute; inset: 0; z-index: 1; transition: transform 0.5s cubic-bezier(0.34, 1.2, 0.64, 1), opacity 0.5s ease-out; } .ds-signal span { position: absolute; background: #E1251B; left: 50%; transform: translateX(-50%); } .ds-stem { top: 27.5%; height: 45%; width: 1.25%; } .ds-disc { top: 15%; width: 12%; height: 12%; border-radius: 50%; } .ds-hub { top: 48%; width: 4%; height: 4%; border-radius: 50%; } .ds-dial:hover .ds-signal { transform: rotate(110deg); opacity: 0; } @media (prefers-reduced-motion: reduce) { .ds-signal { transition: opacity 0.2s ease-out; } .ds-dial:hover .ds-signal { transform: none; opacity: 0; } }"
     },
     {
-      "name": "Error Label",
+      "name": "Bedside Clock",
       "kind": "custom",
-      "refersTo": "colors.face",
-      "description": "Errors in clock-face white with an SF Symbol (exclamationmark.triangle), footnote size. Never red.",
-      "html": "<div class=\"ds-err-wrap\"><p class=\"ds-err\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M12 3 2 21h20L12 3z\"/><path d=\"M12 10v5M12 18v.5\" stroke-linecap=\"round\"/></svg>Alarms are off for this app. Turn them on in Settings.</p></div>",
-      "css": ".ds-err-wrap { background: #0B0D10; padding: 16px 20px; } .ds-err { margin: 0; display: flex; gap: 8px; align-items: flex-start; color: #F2F2EE; font: 400 13px/18px -apple-system, system-ui, sans-serif; } .ds-err svg { flex: none; margin-top: 1px; }"
+      "refersTo": "station-dial-bedside",
+      "description": "Pure black ground; dial, time and first-ring line dimmed together to 55% as one layer; exit line in full graphite.",
+      "html": "<div class=\"ds-bed\"><div class=\"ds-bed-group\"><div class=\"ds-bed-dial\" aria-hidden=\"true\"></div><p class=\"ds-bed-time\">11:42 PM</p><p class=\"ds-bed-first\">First ring 6:20 AM.</p></div><p class=\"ds-bed-exit\">Tap anywhere to leave.</p></div>",
+      "css": ".ds-bed { background: #000000; color: #F2F2EE; padding: 48px 24px 24px; display: flex; flex-direction: column; align-items: center; gap: 48px; font-family: -apple-system, system-ui, sans-serif; cursor: pointer; } .ds-bed-group { opacity: 0.55; isolation: isolate; display: flex; flex-direction: column; align-items: center; gap: 28px; } .ds-bed-dial { width: 160px; height: 160px; border-radius: 50%; background: repeating-conic-gradient(from -1.5deg, #F2F2EE 0deg 3deg, transparent 3deg 30deg); -webkit-mask: radial-gradient(closest-side, transparent 76%, #000 76.5%, #000 96%, transparent 96.5%); mask: radial-gradient(closest-side, transparent 76%, #000 76.5%, #000 96%, transparent 96.5%); } .ds-bed-time { margin: 0; font: 600 64px/1 inherit; font-variant-numeric: tabular-nums; } .ds-bed-first { margin: 0; font: 400 20px/25px inherit; } .ds-bed-exit { margin: 0; color: #8A8F98; font: 400 13px/18px inherit; } .ds-bed:focus-visible { outline: 2px solid #8A8F98; outline-offset: -4px; }"
     },
     {
       "name": "Grouped List with Destructive Row",
       "kind": "card",
-      "refersTo": "colors.enamel",
-      "description": "System inset grouped list on enamel. Native rows tinted clock white; the destructive row keeps the system red (HIG exception to the Signal Rule).",
-      "html": "<div class=\"ds-list-wrap\"><p class=\"ds-list-head\">Chain</p><div class=\"ds-list\"><div class=\"ds-row\"><span>First ring in</span><span class=\"ds-val\">1 min</span></div><div class=\"ds-row\"><span>Guard rings every</span><span class=\"ds-val\">60 s</span></div></div><div class=\"ds-list\"><button class=\"ds-row ds-destructive\">Cancel chain</button></div></div>",
-      "css": ".ds-list-wrap { background: #0B0D10; padding: 16px 20px; font: 400 17px/22px -apple-system, system-ui, sans-serif; color: #F2F2EE; } .ds-list-head { margin: 0 16px 8px; color: #8A8F98; font-size: 15px; } .ds-list { background: #1C1C1E; border-radius: 26px; margin-bottom: 20px; overflow: hidden; } .ds-row { display: flex; justify-content: space-between; width: 100%; box-sizing: border-box; padding: 14px 20px; border: none; background: none; color: inherit; font: inherit; text-align: left; } .ds-row + .ds-row { border-top: 0.5px solid rgba(84,84,88,0.65); } .ds-val { font-variant-numeric: tabular-nums; } .ds-destructive { color: #FF453A; cursor: pointer; } .ds-destructive:hover { background: rgba(255,255,255,0.04); } .ds-destructive:focus-visible { outline: 2px solid #F2F2EE; outline-offset: -2px; }"
+      "refersTo": "button-destructive",
+      "description": "System inset grouped form on enamel. Native rows tinted clock white; the destructive row keeps the system red (HIG exception to the Signal Rule).",
+      "html": "<div class=\"ds-list-wrap\"><div class=\"ds-list\"><div class=\"ds-row\"><span>Left this month</span><span class=\"ds-val\">2 of 2</span></div></div><div class=\"ds-list\"><button class=\"ds-row ds-destructive\">Skip this morning</button></div></div>",
+      "css": ".ds-list-wrap { background: #0B0D10; padding: 16px 20px; font: 400 17px/22px -apple-system, system-ui, sans-serif; color: #F2F2EE; } .ds-list { background: #1C1C1E; border-radius: 26px; margin-bottom: 20px; overflow: hidden; } .ds-row { display: flex; justify-content: space-between; width: 100%; box-sizing: border-box; padding: 14px 20px; border: none; background: none; color: inherit; font: inherit; text-align: left; } .ds-val { color: #8A8F98; font-variant-numeric: tabular-nums; } .ds-destructive { color: #FF453A; cursor: pointer; } .ds-destructive:hover { background: rgba(255,255,255,0.04); } .ds-destructive:focus-visible { outline: 2px solid #F2F2EE; outline-offset: -2px; }"
     }
   ],
   "narrative": {
     "northStar": "The Station Clock",
-    "overview": "Wakelatch is a Swiss railway clock in a dark room. The red second hand on those clocks pauses at twelve and waits for the signal before it moves on. Wakelatch is that pause: a latched alarm keeps ringing until the user gives the signal by solving the challenge, and then the red disc swings away. Everything else on screen is the clock's enamel, its white bar indices and its graphite minor marks.\n\nThe app is dark-only. Both scenes it serves happen in a dark room: setting tomorrow's rings at night, and solving the challenge in the morning with bleary eyes and one hand. Screens are sparse and high-contrast: white on near-black, one dial, one sentence, one action pinned to the bottom. Native SwiftUI structure (NavigationStack, inset grouped lists, system toolbars, the system number pad) carries the app; the world lives in the colours, the dial and the single slab button. The direction refuses sunrise gradients, neon-on-black and the stock alarm list.\n\nThe world is flat. There are no custom shadows or gradients; depth comes from the system's own grouped-list and toolbar materials, and from the white slab sitting on enamel.",
+    "overview": "Wakelatch is a Swiss railway clock in a dark room. The red second hand on those clocks pauses at twelve and waits for the signal before it moves on. Wakelatch is that pause: a latched alarm keeps ringing until the user gives the signal by finishing the challenge, and then the red disc swings away. Everything else on screen is the clock's enamel, its white bar indices and its graphite minor marks.\n\nThe app is dark-only. Every scene it serves happens in a dark room: setting tomorrow's two times at night, leaving the phone on the charger in bedside mode, and stopping the ring in the morning with bleary eyes and one hand. Screens are sparse and high-contrast: white on near-black, one dial, one sentence, one white slab at the bottom. Native SwiftUI structure (NavigationStack, inset grouped lists and forms, system toolbars and sheets, the wheel and compact time pickers, the system number pad) carries the app; the world lives in the colours, the dial, the large tabular numbers and the single slab. The direction refuses sunrise gradients, neon-on-black and the stock alarm list.\n\nThe world is flat. There are no custom shadows or gradients; depth comes from the system's grouped-list, toolbar and sheet materials, and from clock white at stated opacities sitting on enamel.",
     "keyCharacteristics": [
-      "Dark-only enamel ground (no light appearance).",
-      "One recurring form: the bar-index station dial, at every size.",
-      "Signal red means \"latched\" and nothing else.",
-      "SF Pro at Dynamic Type text styles, tabular digits everywhere a number appears.",
-      "One radius (12pt) and one button style (slab).",
-      "The primary action is pinned in the bottom safe-area inset."
+      "Dark-only: enamel ground everywhere, pure black at the bedside.",
+      "One recurring form: the bar-index station dial, at every size from 96pt to full width.",
+      "Signal red means \"latched\" and nothing else, and is never text.",
+      "SF Pro only; tabular digits on every number; the big clock and count numbers scale with Dynamic Type up to a cap.",
+      "One radius (12pt) and one custom button (the slab), one slab per screen at the bottom."
     ],
     "rules": [
-      { "name": "The Signal Rule", "body": "Signal red means \"latched\" and nothing else. If the latch is not holding, no red is on screen. It is never used for text.", "section": "colors" },
-      { "name": "The Destructive Exception Rule", "body": "Destructive buttons (\"Cancel chain\", \"Clear log\") keep the system red that `role: .destructive` gives them. This is a deliberate exception to the Signal Rule, following the HIG convention that destructive actions are shown in the system red. Do not restyle them in signal red, and do not use the system red anywhere else.", "section": "colors" },
-      { "name": "The Quiet Error Rule", "body": "Errors are shown in clock-face white with an SF Symbol (`exclamationmark.triangle`), at footnote size. Never in red.", "section": "colors" },
-      { "name": "The Dark Room Rule", "body": "The app is dark-only (`.preferredColorScheme(.dark)` at the root and on the challenge cover). Both use scenes happen in a dark room. Do not add a light appearance.", "section": "colors" },
-      { "name": "The Timetable Rule", "body": "Every number that can change (times, ring counts, problems, answers, log timestamps) uses tabular digits, so values never jitter as they update.", "section": "typography" },
-      { "name": "The Text Style Rule", "body": "Type is set only with Dynamic Type text styles (weight may change; size may not be fixed). No custom fonts, no fixed point sizes.", "section": "typography" },
-      { "name": "The Pinned Action Rule", "body": "Each screen has at most one slab, and it lives in the bottom safe-area inset with a soft scroll edge behind it.", "section": "layout" },
-      { "name": "The Fits Above the Keys Rule", "body": "At any Dynamic Type size, the morning challenge must show its whole task above the number pad. Shrink the dial before anything else.", "section": "layout" },
+      { "name": "The Signal Rule", "body": "Signal red means \"latched\" and nothing else: the disc while a latch is armed or holding, and the tick of the ring sounding now. It is never used for text.", "section": "colors" },
+      { "name": "The Destructive Exception Rule", "body": "Destructive buttons (\"Skip this morning\") keep the system red that `role: .destructive` gives them. This is a deliberate exception to the Signal Rule, following the HIG convention for destructive actions. Do not restyle them in signal red, and do not use the system red anywhere else.", "section": "colors" },
+      { "name": "The Quiet Error Rule", "body": "Errors and warnings are a `Label` in clock-face white with the `exclamationmark.triangle` symbol. Never red.", "section": "colors" },
+      { "name": "The Dark Room Rule", "body": "The app is dark-only (`.preferredColorScheme(.dark)` at the root, on the morning screens and on the skip sheet). Do not add a light appearance.", "section": "colors" },
+      { "name": "The Bedside Black Rule", "body": "Bedside mode alone uses a pure black ground. Its clock group (dial, time, first-ring line) is dimmed as one layer (`compositingGroup()` then 55% opacity) so overlapping strokes do not show through each other; the exit line underneath stays full graphite so it stays legible.", "section": "colors" },
+      { "name": "The Timetable Rule", "body": "Every number that can change (times, ring counts, problems, answers, step and shake counts) uses tabular digits, so values never jitter as they update.", "section": "typography" },
+      { "name": "The Scaled Clock Rule", "body": "Type is set with Dynamic Type text styles. The three big numbers are the only fixed-size sets, and each is a `@ScaledMetric(relativeTo: .largeTitle)` with a cap: 72 to 110, 64 to 96, 96 to 140. No custom fonts.", "section": "typography" },
+      { "name": "The One Slab Rule", "body": "Each screen has at most one white slab, and it lives in a bottom safe-area bar or inset, never in scrolling content.", "section": "layout" },
+      { "name": "The Fits Above the Keys Rule", "body": "At any Dynamic Type size, the math challenge shows its problem and answer field above the number pad. Shrink the dial first.", "section": "layout" },
       { "name": "The Enamel Rule", "body": "Custom surfaces are enamel, clock white, or clock white at a stated opacity. No shadows, no gradients.", "section": "elevation" }
     ],
     "dos": [
-      "Do keep every screen dark: enamel ground, `.preferredColorScheme(.dark)`.",
-      "Do reserve signal red for the latched state: the disc and the ring sounding under the latch.",
-      "Do show errors in clock-face white with an SF Symbol.",
+      "Do keep every screen dark: enamel ground, `.preferredColorScheme(.dark)`; pure black only at the bedside.",
+      "Do reserve signal red for the latch: the disc and the tick of the ring sounding now.",
+      "Do show errors as a clock-white `Label` with `exclamationmark.triangle`.",
       "Do leave destructive buttons in the system red of `role: .destructive`, per the HIG.",
-      "Do set all type with Dynamic Type text styles and give every changing number tabular digits.",
-      "Do pin the one primary action in a bottom safe-area inset with a soft scroll-edge effect.",
-      "Do use the slab for the primary action and system button styles, tinted clock white, for everything else.",
-      "Do use the 12pt radius on any new custom rounded surface.",
-      "Do make the station dial the visual centre of any screen about the latch, and shrink it (140pt) at accessibility sizes before dropping content.",
+      "Do give every changing number tabular digits, and size the big clock and count numbers with `@ScaledMetric(relativeTo: .largeTitle)` and a cap.",
+      "Do put the one slab in a bottom safe-area bar or inset with a soft scroll edge behind it.",
+      "Do use the slab for the primary action and system styles, tinted clock white, for everything else.",
+      "Do use the 12pt radius and clock white at a stated opacity for any new custom surface.",
+      "Do write morning copy as short statements of fact: \"Ring N of M. Deadline h:mm.\", \"Snooze until h:mm\".",
+      "Do shrink the dial (96pt on the challenge) at accessibility sizes before dropping content.",
       "Do pair the release with the success haptic and give it a crossfade under Reduce Motion."
     ],
     "donts": [
       "Don't use signal red for text, errors, buttons, badges or decoration.",
       "Don't add a light appearance.",
       "Don't add a second custom button style or a second radius.",
-      "Don't fix font sizes or bring in a custom typeface.",
+      "Don't bring in a custom typeface or set uncapped, unscaled point sizes.",
       "Don't add shadows or gradients; the world refuses sunrise gradients and neon-on-black.",
       "Don't replace the dial with the stock alarm list.",
-      "Don't put the primary action inside scrolling content."
+      "Don't put a slab inside scrolling content or place two slabs on one screen.",
+      "Don't set a custom AlarmKit sound."
     ]
   }
 }

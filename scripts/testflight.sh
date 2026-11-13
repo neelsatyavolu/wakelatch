@@ -8,7 +8,6 @@
 #   CERT_ITEM   item holding the Apple Distribution certificate (AppleDistribution_<team>.p12, "password",
 #               "Apple Certificate ID")
 # BUILD_NUMBER overrides the build number (default: UTC timestamp, always increasing).
-# Betas leave out the Family Controls entitlement (deletion block) until Apple approves it for distribution.
 set -euo pipefail
 export DEVELOPER_DIR="${DEVELOPER_DIR:-/Applications/Xcode.app/Contents/Developer}"
 cd "$(dirname "$0")/.."
@@ -107,12 +106,11 @@ OUT=.build/testflight
 ARCHIVE="$OUT/Wakelatch.xcarchive"
 rm -rf "$ARCHIVE" "$OUT/export"
 mkdir -p "$OUT"
-xcodebuild -project Wakelatch.xcodeproj -scheme WakelatchSpike -configuration Release -destination 'generic/platform=iOS' \
+xcodebuild -project Wakelatch.xcodeproj -scheme Wakelatch -configuration Release -destination 'generic/platform=iOS' \
   -archivePath "$ARCHIVE" -derivedDataPath "$OUT/build" archive \
   CURRENT_PROJECT_VERSION="$BUILD_NUMBER" CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM="$TEAM_ID" \
   CODE_SIGN_IDENTITY="$IDENTITY" PROVISIONING_PROFILE_SPECIFIER="$PROFILE_UUID" \
   CODE_SIGN_ENTITLEMENTS="$TMP/release.entitlements" OTHER_CODE_SIGN_FLAGS="--keychain $KC" \
-  SWIFT_ACTIVE_COMPILATION_CONDITIONS='$(inherited) WAKELATCH_NO_FAMILY_CONTROLS' \
   > "$OUT/archive.log" 2>&1 || { grep -E "error:" "$OUT/archive.log" | sort -u >&2; exit 1; }
 
 echo "==> Exporting the .ipa"
