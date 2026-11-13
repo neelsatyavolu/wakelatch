@@ -1,0 +1,64 @@
+name: Wakelatch
+options:
+  bundleIdPrefix: co.xanom
+  deploymentTarget:
+    iOS: "26.2"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    DEVELOPMENT_TEAM: VTQW687WBQ
+    CODE_SIGN_STYLE: Automatic
+packages:
+  WakelatchCore:
+    path: Packages/WakelatchCore
+targets:
+  WakelatchSpike:
+    type: application
+    platform: iOS
+    sources: [Spike]
+    dependencies:
+      - package: WakelatchCore
+    entitlements:
+      path: Spike/WakelatchSpike.entitlements
+      properties:
+        com.apple.developer.family-controls: true
+    info:
+      path: Spike/Info.plist
+      properties:
+        CFBundleDisplayName: Wakelatch
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        ITSAppUsesNonExemptEncryption: false
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        NSAlarmKitUsageDescription: Wakelatch schedules alarms that keep ringing until you finish a challenge.
+        NSSupportsLiveActivities: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: co.xanom.wakelatch
+        TARGETED_DEVICE_FAMILY: "1"
+        MARKETING_VERSION: 0.1.0
+        CURRENT_PROJECT_VERSION: "1"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        # App Intents can't resolve intent types that live in Xcode's debug dylib.
+        ENABLE_DEBUG_DYLIB: NO
+        GENERATE_INFOPLIST_FILE: false
+  WakelatchSpikeUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [SpikeUITests]
+    dependencies:
+      - target: WakelatchSpike
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: co.xanom.wakelatch.uitests
+        GENERATE_INFOPLIST_FILE: true
+        TEST_TARGET_NAME: WakelatchSpike
+schemes:
+  WakelatchSpike:
+    build:
+      targets:
+        WakelatchSpike: all
+    test:
+      targets: [WakelatchSpikeUITests]

@@ -1,0 +1,124 @@
+{
+  "title": "Choose Wakelatch's visual world",
+  "question": "The roll assigned the station clock. Keep it, take an alternate, or re-roll.",
+  "options": [
+    {
+      "id": "assigned",
+      "kind": "assigned",
+      "label": "Station Clock",
+      "kicker": "THE ROLL",
+      "lineage": "Swiss railway station clock (Mondaine/SBB, Hans Hilfiker 1944)",
+      "thesis": "The railway clock whose red second hand stops at twelve and waits for the signal before the minute moves on. Wakelatch is that pause: the alarm holds until you give the signal. Refuses the category's sunrise gradients and neon-on-black.",
+      "palette": ["#0B0D10", "#F2F2EE", "#8A8F98", "#E1251B"],
+      "materials": ["enamel clock face", "bar indices", "signal-red paddle disc"],
+      "viewport": "Home: native nav, large title 'Tomorrow'. A full-width dial drawn as bar indices, with the Ideal-to-Deadline window as a thick white arc and each ring (nudges, main, guards, deadline) as a bar tick. Below it, a grouped native list: Ideal 6:40, Deadline 7:15, challenge per alarm. The red paddle disc sits on the dial only when a latch is armed. Morning: black screen, the dial alone, red paddle at twelve, 'Ring 3 of 10. Solve to stop.', then the challenge with a full-width answer field and system keypad.",
+      "risk": "A clock dial on an alarm app can read as literal; it only works if the dial carries real schedule data and the red is reserved for the latch.",
+      "raised": [
+        {"from": "challenger-botanical-folio", "raise": "Every alarm stage (nudge, main, guard, deadline, awake check) is drawn at one fixed scale on one shared timeline, so mornings compare at a glance in the history view."},
+        {"from": "challenger-emigre-bitmap", "raise": "One form repeated at every size: the bar-index dial is the app icon, the Live Activity glyph, the timeline tick and the full morning dial."},
+        {"from": "challenger-factory-sleeve", "raise": "Morning screens keep one element on a vast black field; nothing else is printed until the challenge appears."}
+      ]
+    },
+    {
+      "id": "model-pick",
+      "kind": "pick",
+      "label": "Boarding Pass",
+      "kicker": "IMPECCABLE’S PICK",
+      "lineage": "airline boarding passes",
+      "thesis": "Ideal is Boarding, Deadline is Gate closes. Tomorrow's alarms are a pass with a perforated stub you tear off by finishing the challenge.",
+      "palette": ["#F4F1EA", "#14213D", "#2F6FDB", "#D7263D"],
+      "materials": ["coupon stock", "perforation", "OCR numerals"],
+      "viewport": "Home: native nav, the pass as the lead block (BOARDS 6:40, GATE CLOSES 7:15, rings as seat-row codes), grouped list below. Morning: the stub, 'Gate closes in 18 min'.",
+      "risk": "Familiar: travel metaphors are a common move for scheduling apps, and a pale card is wrong in a dark bedroom."
+    },
+    {
+      "id": "challenger-wayfinding",
+      "kind": "challenger",
+      "catalogId": "wayfinding-cartography-signage-terminal-yellow-wayfinding",
+      "label": "Terminal Wayfinding",
+      "verdict": "competitive",
+      "lineage": "airport yellow sign bands",
+      "thesis": "Each morning screen is one yellow band with the single next decision and a monumental number.",
+      "palette": ["#FFC917", "#111111", "#FFFFFF"],
+      "materials": ["sign bands", "pictograms"],
+      "viewport": "Morning: one yellow band, '3 of 10', the next ring time monumental; home is a chain of bands for tomorrow's rings.",
+      "case": "Holds product clarity (one next decision is exactly the groggy-user rule); loses audience identification and a full yellow field is harsh at 6am in the dark.",
+      "risk": "Saturated yellow in a dark bedroom is glare.",
+      "hero": "https://impeccable.style/worlds/cards/wayfinding-cartography-signage-terminal-yellow-wayfinding-hero.webp"
+    },
+    {
+      "id": "challenger-split-flap",
+      "kind": "challenger",
+      "catalogId": "signals-instruments-split-flap-concourse",
+      "label": "Split-Flap Board",
+      "verdict": "competitive",
+      "lineage": "rail concourse departure boards",
+      "thesis": "Tomorrow's rings as departure rows; a ring that's been solved flips to DEPARTED.",
+      "palette": ["#111111", "#FFFFFF", "#F5A623", "#C0392B"],
+      "materials": ["flap cells", "row lamps"],
+      "viewport": "Home: rows of rings by time with status column; morning: the active row large.",
+      "case": "Strong audience identification with times and status; loses clarity because flap animation and dense rows fight a groggy reader.",
+      "risk": "Becomes a costume of the board if rows are set in flap cells.",
+      "hero": "https://impeccable.style/worlds/cards/signals-instruments-split-flap-concourse-hero.webp"
+    },
+    {
+      "id": "challenger-ticket-wallet",
+      "kind": "challenger",
+      "catalogId": "vernacular-ephemera-jet-age-ticket-wallet",
+      "label": "Ticket Wallet",
+      "verdict": "declined",
+      "lineage": "jet-age airline ticket wallets",
+      "palette": ["#1B2A52", "#D7263D", "#FFFFFF"],
+      "materials": ["carbon coupons", "VOID stamp"],
+      "case": "Overlaps the boarding-pass pick and loses on both axes against the station clock.",
+      "kept": "Nothing disappears, it cancels: solved rings stay visible, struck through, in the day's record."
+    },
+    {
+      "id": "challenger-botanical-folio",
+      "kind": "challenger",
+      "catalogId": "editorial-sequence-montage-botanical-folio-season",
+      "label": "Botanical Folio",
+      "verdict": "declined",
+      "lineage": "botanical life-stage plates",
+      "palette": ["#F3EAD8", "#2E5E3A", "#B3261E"],
+      "materials": ["cream plates", "engraved italics"],
+      "case": "No identification for a groggy sleeper; cream ground is wrong in the dark.",
+      "kept": "Fixed scale on one shared baseline across stages."
+    },
+    {
+      "id": "challenger-emigre-bitmap",
+      "kind": "challenger",
+      "catalogId": "emigre-bitmap-specimen",
+      "label": "Bitmap Specimen",
+      "verdict": "declined",
+      "lineage": "Emigre bitmap specimens",
+      "palette": ["#FFFFFF", "#000000", "#FF3B00"],
+      "materials": ["pixel type", "halftone"],
+      "case": "Pixel display type hurts legibility for bleary eyes; no link to waking.",
+      "kept": "One form repeated at every size."
+    },
+    {
+      "id": "challenger-factory-sleeve",
+      "kind": "challenger",
+      "catalogId": "brand-identity-canon-saville-catalog-sleeve",
+      "label": "Catalog Sleeve",
+      "verdict": "declined",
+      "lineage": "Factory Records sleeves",
+      "palette": ["#0A0A0A", "#FFFFFF"],
+      "materials": ["matte black", "pulse plot"],
+      "case": "Coded colour strips are the opposite of plain-language morning screens.",
+      "kept": "Vast unprinted black with one element owning the field."
+    }
+  ],
+  "reroll": {"registers": ["safer", "bolder"]},
+  "canon": true,
+  "canonCard": {
+    "kind": "canon",
+    "label": "The category standard",
+    "thesis": "What iOS alarm apps ship (Alarmy, Clock), executed impeccably: system list of alarms, big time labels, one tint.",
+    "palette": ["#000000", "#FFFFFF", "#FF9F0A"],
+    "materials": ["system list", "large time labels"],
+    "viewport": "Large title 'Alarms', rows of big times with switches, a full-screen challenge sheet in the morning.",
+    "risk": "Indistinguishable from the dozens of alarm apps it sits beside."
+  }
+}
