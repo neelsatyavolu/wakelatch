@@ -5,3 +5,6 @@ xcuserdata/
 .DS_Store
 .impeccable/live/
 scripts/testflight.local.sh
+site/.vercel
+site/.taste-skill
+site/.env*
