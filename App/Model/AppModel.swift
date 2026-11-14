@@ -153,14 +153,10 @@ final class AppModel {
         return rings.filter { $0.morning == morning && confirmed.contains($0.id) }.count
     }
 
-    /// A morning whose latch has started and isn't finished.
+    /// A morning whose first ring (a nudge counts) has rung and that isn't finished.
     func activeMorning(at now: Date) -> Date? {
-        let started = rings.filter { $0.latched && $0.date <= now }
-        for morning in Set(started.map(\.morning)).sorted(by: >) {
-            let last = rings.filter { $0.morning == morning && $0.latched }.map(\.date).max() ?? morning
-            if now <= last.addingTimeInterval(10 * 60) { return morning }
-        }
-        return nil
+        MorningUnderWay.find(in: rings.filter { $0.kind != .awakeCheck }
+            .map { MorningRing(morning: $0.morning, date: $0.date, latched: $0.latched) }, now: now)
     }
 
     /// Records mornings whose last ring passed without a solve, and drops their rings.
