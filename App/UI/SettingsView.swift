@@ -30,6 +30,7 @@ struct SettingsView: View {
 
                 Section {
                     LabeledContent("Left this month", value: "\(model.skipsLeft) of \(SkipLedger.perMonth)")
+                        .accessibilityIdentifier("settings.skipsLeft")
                 } header: {
                     Text("Emergency skips")
                 } footer: {
@@ -37,8 +38,8 @@ struct SettingsView: View {
                 }
 
                 Section("Permissions") {
-                    LabeledContent("Alarms", value: model.alarmsAuthorized ? "On" : "Off")
-                    if !model.alarmsAuthorized {
+                    LabeledContent("Alarms", value: model.alarmsAuthorized == true ? "On" : "Off")
+                    if model.alarmsAuthorized == false {
                         Button("Open Settings") { openSystemSettings() }
                     }
                 }
@@ -56,7 +57,9 @@ struct SettingsView: View {
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }.accessibilityIdentifier("settings.done")
+                }
             }
         }
     }

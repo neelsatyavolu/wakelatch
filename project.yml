@@ -45,6 +45,18 @@ targets:
         GENERATE_INFOPLIST_FILE: false
         # App Intents can't resolve intent types that live in Xcode's debug dylib.
         ENABLE_DEBUG_DYLIB: NO
+  WakelatchTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [AppTests]
+    dependencies:
+      - target: Wakelatch
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: co.xanom.wakelatch.tests
+        GENERATE_INFOPLIST_FILE: true
+        TEST_HOST: $(BUILT_PRODUCTS_DIR)/Wakelatch.app/Wakelatch
+        BUNDLE_LOADER: $(TEST_HOST)
   WakelatchUITests:
     type: bundle.ui-testing
     platform: iOS
@@ -62,4 +74,4 @@ schemes:
       targets:
         Wakelatch: all
     test:
-      targets: [WakelatchUITests]
+      targets: [WakelatchTests, WakelatchUITests]

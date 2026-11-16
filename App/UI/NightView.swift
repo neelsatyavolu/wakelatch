@@ -13,15 +13,16 @@ struct NightView: View {
             VStack(spacing: 28) {
                 Spacer()
                 VStack(spacing: 28) {
-                    MorningDial(dates: model.nextMorning?.rings.map(\.date) ?? [], latched: true)
+                    MorningDial(dates: dialDates, latched: true)
                         .frame(maxWidth: 220)
                     Text(context.date.shortTime)
                         .font(.system(size: min(clockSize, 96), weight: .semibold).monospacedDigit())
                         .minimumScaleFactor(0.5)
                         .lineLimit(1)
-                    if let first = model.nextMorning?.rings.first {
-                        Text("First ring \(first.date.shortTime).")
+                    if let line = nextRingLine(after: context.date) {
+                        Text(line)
                             .font(.title3)
+                            .accessibilityIdentifier("night.nextRing")
                     }
                 }
                 // Dim the bedside clock as one layer so the red disc stays solid.
@@ -47,23 +48,27 @@ struct NightView: View {
         .accessibilityHint("Leaves bedside mode")
         .statusBarHidden()
         .persistentSystemOverlays(.hidden)
-        .onAppear(perform: start)
-        .onDisappear(perform: stop)
+        .onAppear(perform: refresh)
         .onReceive(NotificationCenter.default.publisher(for: UIDevice.batteryStateDidChangeNotification)) { _ in refresh() }
     }
 
-    private func start() {
-        UIDevice.current.isBatteryMonitoringEnabled = true
-        refresh()
+    /// After an in-app snooze, Bedside shows this morning's rings, not tomorrow's (D3).
+    private var dialDates: [Date] {
+        if let underWay = model.underWay { return model.latchedRings(of: underWay.morning).map(\.date) }
+        return model.nextMorning?.rings.map(\.date) ?? []
     }
 
+    private func nextRingLine(after now: Date) -> String? {
+        if let underWay = model.underWay {
+            return model.latchedRings(of: underWay.morning).first { $0.date > now }
+                .map { "Next ring \($0.date.shortTime)." }
+        }
+        return model.nextMorning?.rings.first.map { "First ring \($0.date.shortTime)." }
+    }
+
+    /// Only for the hint text. The model watches the battery and owns the idle timer (F7).
     private func refresh() {
         let state = UIDevice.current.batteryState
         charging = state == .charging || state == .full
-        UIApplication.shared.isIdleTimerDisabled = model.settings.bedsideKeepsScreenOn && charging
-    }
-
-    private func stop() {
-        UIApplication.shared.isIdleTimerDisabled = false
     }
 }

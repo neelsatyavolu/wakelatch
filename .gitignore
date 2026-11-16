@@ -8,3 +8,4 @@ scripts/testflight.local.sh
 site/.vercel
 site/.taste-skill
 site/.env*
+.build-*/

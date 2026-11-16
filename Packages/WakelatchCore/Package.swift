@@ -9,6 +9,7 @@ let package = Package(
     ],
     targets: [
         .target(name: "WakelatchCore"),
-        .testTarget(name: "WakelatchCoreTests", dependencies: ["WakelatchCore"]),
+        .target(name: "WakelatchCoreTestSupport", dependencies: ["WakelatchCore"]),
+        .testTarget(name: "WakelatchCoreTests", dependencies: ["WakelatchCore", "WakelatchCoreTestSupport"]),
     ]
 )

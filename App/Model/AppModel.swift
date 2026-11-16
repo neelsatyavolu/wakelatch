@@ -1,54 +1,97 @@
+@preconcurrency import AlarmKit
 import Foundation
 import Observation
-import UIKit
 import WakelatchCore
 
-/// What the morning screens are showing, if anything.
-enum MorningScreen: Equatable {
-    case none
-    /// A ring is due. `sounding` is true when it is ringing right now.
-    case ringing(ScheduledRing, sounding: Bool)
-    case challenge(ScheduledRing)
-    case awakeCheck(ScheduledRing)
-    case released(MorningRecord)
-}
-
-/// App state: settings, the alarms on the system, and the morning in progress.
+/// The app shell around `MorningEngine` (plan 1.4). `send(_:)` is the single writer of morning state:
+/// it runs `engine.handle`, saves the engine state before anything else happens (the `.persist` effect
+/// always comes first), then performs the effects in the engine's order. AlarmKit results come back as
+/// events through `send(_:)` too, so nothing is ever written back from a stale snapshot.
 @MainActor
 @Observable
 final class AppModel {
-    static let shared = AppModel()
+    static let shared = AppModel(environment: .live())
 
-    private let storage = Storage()
-    let calendar = Calendar.current
-
+    private(set) var engine: MorningEngine
     private(set) var settings: UserSettings
-    private(set) var rings: [ScheduledRing]
-    private(set) var records: [MorningRecord]
-    private(set) var skips: SkipLedger
-    /// Rings the user snoozed, and awake checks they answered.
-    private(set) var acknowledged: Set<UUID>
-    var screen: MorningScreen = .none
-    /// Bedside mode is showing (it shares the full-screen cover with the morning screens).
-    var bedside = false
-    private(set) var scheduleError: String?
-    private(set) var syncing = false
-    private var resyncRequested = false
-    /// Alarm IDs iOS reported after the last sync.
-    private(set) var confirmedWithSystem: Set<UUID>?
-    /// AlarmKit permission, kept current by `watchAuthorization`.
-    private(set) var alarmsAuthorized = false
-    /// Screenshot mode: keeps the demo screen up.
-    private var demo = false
-    /// Screenshot mode: the time the morning screens show.
-    private(set) var demoNow: Date?
+    /// AlarmKit permission; nil until the first read lands (it is read off the main thread).
+    private(set) var alarmsAuthorized: Bool?
+    /// AlarmKit's table at the last read or update. Nil before the first.
+    private(set) var systemTable: [SystemAlarm]?
+    /// Goes up by one on each `.dismissHomeSheets`. Home views close their sheets when it changes, so the
+    /// morning cover can present (contract F6).
+    private(set) var sheetDismissals = 0
+    /// AlarmKit calls queued or running.
+    private(set) var alarmCallsInFlight = 0
+    /// The morning cover (or Bedside) is on screen.
+    private(set) var coverVisible = false
+    /// Screenshot mode (`-uitest-show`): a sample screen that is not scheduled.
+    private(set) var demo: DemoScreen?
+    /// UI tests only: alert-button intents received by this install, kept across launches.
+    private(set) var intentsReceived = 0
+    /// The in-app sound playing now (under UI tests, the one that would be: they run silent).
+    private(set) var playing: PlayingSound?
 
-    private init() {
-        settings = storage.load(UserSettings.self, key: "settings") ?? UserSettings()
-        rings = storage.load([ScheduledRing].self, key: "rings") ?? []
-        records = storage.load([MorningRecord].self, key: "records") ?? []
-        skips = storage.load(SkipLedger.self, key: "skips") ?? SkipLedger()
-        acknowledged = storage.load(Set<UUID>.self, key: "acknowledged") ?? []
+    @ObservationIgnored let environment: AppEnvironment
+    @ObservationIgnored private var inbox: [Event] = []
+    @ObservationIgnored private var draining = false
+    /// The tail of the serial AlarmKit queue.
+    @ObservationIgnored var alarmQueue: Task<Void, Never>?
+    /// `launched` was sent: later activations send `becameActive`.
+    @ObservationIgnored var hasLaunched = false
+    @ObservationIgnored var tickTask: Task<Void, Never>?
+    /// The alerting set last sent, so `.alerting` is only sent when it changes.
+    @ObservationIgnored var lastAlerting: Set<UUID>?
+    @ObservationIgnored var background: [Task<Void, Never>] = []
+    @ObservationIgnored var observers: [any NSObjectProtocol] = []
+    /// When `challengeActivity` last reached the engine, to send it at most every few seconds.
+    @ObservationIgnored var lastActivitySent: Date?
+
+    init(environment: AppEnvironment) {
+        self.environment = environment
+        var settings = environment.settingsStore.load(UserSettings.self, key: Storage.settingsKey) ?? UserSettings()
+        if environment.options.onboarded, !settings.onboarded {
+            settings.onboarded = true
+            environment.settingsStore.save(settings, key: Storage.settingsKey)
+        }
+        self.settings = settings
+        engine = MorningEngine(state: environment.store.load() ?? EngineState(),
+                               settings: settings.engineSettings(test: environment.options.test),
+                               calendar: environment.calendar())
+        if environment.options.debug {
+            intentsReceived = environment.settingsStore.load(Int.self, key: Storage.intentsKey) ?? 0
+        }
+        demo = environment.options.show.flatMap { DemoScreen.make($0, settings: settings, now: environment.now(),
+                                                                  calendar: environment.calendar()) }
+    }
+
+    var now: Date { environment.now() }
+
+    // MARK: the single writer
+
+    /// Applies one event. An event sent while another is being handled (an effect that answers at once)
+    /// waits its turn, so effects always run in order and never interleave.
+    func send(_ event: Event) {
+        inbox.append(event)
+        guard !draining else { return }
+        draining = true
+        defer { draining = false }
+        while !inbox.isEmpty {
+            let next = inbox.removeFirst()
+            for effect in engine.handle(next) { perform(effect) }
+            resumeSound()
+        }
+    }
+
+    /// An alert button's intent ran. A background confirm waits for its cancels to reach AlarmKit before the
+    /// intent returns, since iOS may suspend the app right after.
+    func receiveAlertAction(_ ringID: UUID, _ action: AlertAction) async {
+        if environment.options.debug {
+            intentsReceived += 1
+            environment.settingsStore.save(intentsReceived, key: Storage.intentsKey)
+        }
+        send(.alertAction(ringID: ringID, action, now: now))
+        if action == .confirmAwake { await alarmCallsSettled() }
     }
 
     // MARK: settings
@@ -57,323 +100,174 @@ final class AppModel {
         var next = settings
         change(&next)
         guard next != settings else { return }
-        settings = next
-        storage.save(settings, key: "settings")
-        Task { await sync() }
+        apply(next)
     }
 
-    /// Validation message for the chosen times, or nil when they work.
-    var timesProblem: String? {
-        settings.times.windowMinutes > MorningPlan.maxWindowMinutes
-            ? "Deadline must be within 3 hours of Ideal." : nil
+    /// Saves the settings, then hands them to the engine.
+    func apply(_ next: UserSettings) {
+        settings = next
+        environment.settingsStore.save(next, key: Storage.settingsKey)
+        send(.settingsChanged(next.engineSettings(test: environment.options.test), now: now))
     }
 
     // MARK: permission
 
-    func refreshAuthorization() {
-        alarmsAuthorized = AlarmService.isAuthorized
+    /// Reads AlarmKit's permission (off the main thread) and applies it.
+    func refreshAuthorization() async {
+        applyAuthorization(await AlarmAuthorization.state())
     }
 
     func requestAlarms() async -> Bool {
-        let granted = await AlarmService.requestAuthorization()
-        refreshAuthorization()
-        return granted
+        let state = await AlarmAuthorization.request()
+        applyAuthorization(state)
+        return state == .authorized
     }
 
-    // MARK: schedule
-
-    /// The next morning that will ring, and its rings.
-    var nextMorning: (day: Date, rings: [PlannedRing])? {
-        guard settings.enabled, timesProblem == nil else { return nil }
-        let days = MorningPlan.upcomingDays(after: .now, times: settings.times, repeatDays: settings.repeatDays,
-                                            count: 1, nudges: settings.plan.nudges, calendar: calendar)
-        guard let day = days.first,
-              let plan = try? MorningPlan.build(on: day, times: settings.times, options: settings.plan, calendar: calendar)
-        else { return nil }
-        return (day, plan)
-    }
-
-    /// Replaces scheduled alarms with the next three mornings, keeping a morning already under way.
-    func sync() async {
-        guard AlarmService.isAuthorized, !demo else { return }
-        // A change made while a sync is running must not be dropped: run again with the new settings.
-        guard !syncing else { resyncRequested = true; return }
-        syncing = true
-        // Finish handing alarms to iOS even if the user leaves the app mid-sync.
-        let background = UIApplication.shared.beginBackgroundTask(withName: "Schedule alarms")
-        defer {
-            syncing = false
-            UIApplication.shared.endBackgroundTask(background)
+    /// On each activation: ask for alarm permission once onboarding is done and iOS has not asked yet.
+    func checkAuthorization() async {
+        let state = await AlarmAuthorization.state()
+        applyAuthorization(state)
+        if settings.onboarded && state == .notDetermined {
+            _ = await requestAlarms()
         }
-        repeat {
-            resyncRequested = false
-            await syncOnce()
-        } while resyncRequested
     }
 
-    private func syncOnce() async {
-        let now = Date.now
-        closeFinishedMornings(now: now)
-        let active = activeMorning(at: now)
-        let keep = rings.filter { $0.morning == active || ($0.kind == .awakeCheck && $0.date > now) }
-        for ring in rings where !keep.contains(ring) { AlarmService.cancel(ring.id) }
+    func applyAuthorization(_ state: AlarmManager.AuthorizationState) {
+        let authorized = state == .authorized
+        let gained = authorized && alarmsAuthorized != true
+        alarmsAuthorized = authorized
+        // Schedules failed while alarms were off; read the table so reconcile retries them now.
+        if gained, hasLaunched { perform(.readSystemTable) }
+    }
 
-        var next = keep
-        scheduleError = nil
-        if settings.enabled, timesProblem == nil {
-            let days = MorningPlan.upcomingDays(after: now, times: settings.times, repeatDays: settings.repeatDays,
-                                                count: 3, nudges: settings.plan.nudges, calendar: calendar)
-            for day in days {
-                let morning = MorningPlan.idealDate(on: day, times: settings.times, calendar: calendar)
-                guard morning != active,
-                      let plan = try? MorningPlan.build(on: day, times: settings.times, options: settings.plan,
-                                                        calendar: calendar) else { continue }
-                for planned in plan where planned.date > now {
-                    let ring = ScheduledRing(planned: planned, morning: morning)
-                    do {
-                        try await AlarmService.schedule(ring)
-                        next.append(ring)
-                    } catch {
-                        scheduleError = "Couldn't schedule every alarm: \(error.localizedDescription)"
-                    }
-                }
+    // MARK: what iOS reports
+
+    /// AlarmKit's table changed. Sends `.alerting` when the set of alerting alarms is different.
+    func alarmTableChanged(_ table: [SystemAlarm]) {
+        systemTable = table
+        let alerting = Set(table.filter(\.alerting).map(\.id))
+        guard alerting != lastAlerting else { return }
+        lastAlerting = alerting
+        send(.alerting(alerting, now: now, audible: environment.audible(), coverVisible: coverVisible))
+    }
+
+    /// The full-screen cover finished presenting: takeover silencing may happen now (F5).
+    func coverAppeared() {
+        coverVisible = true
+        send(.coverShown(now: now, audible: environment.audible()))
+    }
+
+    func coverDisappeared() {
+        coverVisible = false
+    }
+
+    // MARK: effects
+
+    /// Runs the engine's effects. AlarmKit schedule, cancel and table reads go through one serial queue, so a
+    /// cancel never overtakes the schedules the engine put before it (Reconciler order: the deadline and guards
+    /// first, cancels last). Silencing does not wait in that queue: it stops a ring that is alerting now.
+    func perform(_ effect: Effect) {
+        switch effect {
+        case .persist:
+            persist()
+        case let .schedule(ring):
+            enqueueAlarmCall { model in await model.schedule(ring) }
+        case let .cancel(id):
+            enqueueAlarmCall { model in await model.environment.alarms.cancel(id) }
+        case .readSystemTable:
+            enqueueAlarmCall { model in await model.readSystemTable() }
+        case let .silence(id):
+            guard takeoverIsCovered(id) else {
+                modelLog.error("In-app sound is not playing: the system alarm keeps ringing")
+                return
             }
-        }
-        rings = next.sorted { $0.date < $1.date }
-        storage.save(rings, key: "rings")
-        let known = Set(rings.map(\.id))
-        for id in AlarmService.systemAlarmIDs() where !known.contains(id) { AlarmService.cancel(id) }
-        confirmedWithSystem = AlarmService.systemAlarmIDs()
-    }
-
-    /// Rings of the next morning that iOS really has on its books (nil before the first sync).
-    var confirmedNextRings: Int? {
-        guard let confirmed = confirmedWithSystem, let day = nextMorning?.day else { return nil }
-        let morning = MorningPlan.idealDate(on: day, times: settings.times, calendar: calendar)
-        return rings.filter { $0.morning == morning && confirmed.contains($0.id) }.count
-    }
-
-    /// A morning whose first ring (a nudge counts) has rung and that isn't finished.
-    func activeMorning(at now: Date) -> Date? {
-        MorningUnderWay.find(in: rings.filter { $0.kind != .awakeCheck }
-            .map { MorningRing(morning: $0.morning, date: $0.date, latched: $0.latched) }, now: now)
-    }
-
-    /// Records mornings whose last ring passed without a solve, and drops their rings.
-    private func closeFinishedMornings(now: Date) {
-        let active = activeMorning(at: now)
-        let past = Set(rings.filter { $0.latched && $0.morning != active }.map(\.morning))
-            .filter { morning in rings.filter { $0.morning == morning && $0.latched }.allSatisfy { $0.date < now } }
-        for morning in past { record(morning: morning, upAt: nil, skipped: false) }
-        rings.removeAll { past.contains($0.morning) && $0.kind != .awakeCheck }
-        rings.removeAll { $0.kind == .awakeCheck && $0.date < now.addingTimeInterval(-15 * 60) }
-    }
-
-    // MARK: morning flow
-
-    /// Decides which morning screen to show. `sounding` holds alarms ringing right now.
-    func evaluate(now: Date = .now, sounding: Set<UUID> = []) {
-        guard !demo else { return }
-        switch screen {
-        case .challenge, .released: return
-        default: break
-        }
-        let checks = rings.filter { $0.kind == .awakeCheck && $0.date <= now && !acknowledged.contains($0.id) }
-        if let check = checks.max(by: { $0.date < $1.date }) {
-            screen = .awakeCheck(check)
-            return
-        }
-        if let morning = activeMorning(at: now),
-           let due = rings.filter({ $0.morning == morning && $0.latched && $0.date <= now })
-               .max(by: { $0.date < $1.date }),
-           !acknowledged.contains(due.id) {
-            screen = .ringing(due, sounding: sounding.contains(due.id) || now.timeIntervalSince(due.date) < 90)
-            return
-        }
-        if let nudge = rings.first(where: { $0.kind == .nudge && sounding.contains($0.id) }) {
-            screen = .ringing(nudge, sounding: true)
-            return
-        }
-        if case .ringing = screen { screen = .none }
-        if case .awakeCheck = screen { screen = .none }
-    }
-
-    /// AlarmKit reports alarms ringing while Wakelatch is open: take over with the in-app screen.
-    func alarmsRinging(_ ids: Set<UUID>, appActive: Bool) {
-        let ours = ids.intersection(rings.map(\.id))
-        guard appActive, !ours.isEmpty else { return }
-        evaluate(sounding: ours)
-        guard case let .ringing(ring, _) = screen else { return }
-        // The system alarm is only silenced once Wakelatch's own sound is really playing loud enough;
-        // otherwise both ring, which is better than neither.
-        RingPlayer.shared.play(nudge: ring.kind == .nudge)
-        guard RingPlayer.shared.isAudible else { return }
-        for id in ours { AlarmService.silence(id) }
-    }
-
-    func snooze(_ ring: ScheduledRing) {
-        acknowledge(ring.id)
-        screen = .none
-    }
-
-    func dismissNudge(_ ring: ScheduledRing) {
-        acknowledge(ring.id)
-        screen = .none
-    }
-
-    func startChallenge(_ ring: ScheduledRing) {
-        screen = .challenge(ring)
-    }
-
-    func solved(_ ring: ScheduledRing) {
-        let now = Date.now
-        let record = finish(morning: ring.morning, upAt: now, skipped: false)
-        if settings.awakeChecks { Task { await scheduleAwakeChecks(after: now, morning: ring.morning) } }
-        screen = .released(record)
-        bedside = false
-    }
-
-    /// Emergency skip. Returns false when none are left this month.
-    func skip(_ ring: ScheduledRing) -> Bool {
-        guard skips.use(at: .now, calendar: calendar) else { return false }
-        storage.save(skips, key: "skips")
-        _ = finish(morning: ring.morning, upAt: nil, skipped: true)
-        screen = .none
-        return true
-    }
-
-    var skipsLeft: Int { skips.remaining(at: .now, calendar: calendar) }
-
-    /// The latched rings of a morning, in order.
-    func latchedRings(of morning: Date) -> [ScheduledRing] {
-        rings.filter { $0.morning == morning && $0.latched }.sorted { $0.date < $1.date }
-    }
-
-    /// "Ring 3 of 10" numbers and the deadline for a ring's morning.
-    func position(of ring: ScheduledRing) -> (number: Int, total: Int, deadline: Date?) {
-        let latched = latchedRings(of: ring.morning)
-        let number = (latched.firstIndex { $0.id == ring.id } ?? 0) + 1
-        return (number, latched.count, latched.first { $0.kind == .deadline }?.date)
-    }
-
-    func confirmAwake(_ ring: ScheduledRing) {
-        let group = rings.filter { $0.kind == .awakeCheck && $0.checkGroup == ring.checkGroup && $0.morning == ring.morning }
-        for check in group {
-            AlarmService.cancel(check.id)
-            acknowledge(check.id)
-        }
-        rings.removeAll { group.contains($0) }
-        storage.save(rings, key: "rings")
-        screen = .none
-    }
-
-    func closeReleased() {
-        screen = .none
-    }
-
-    var pendingAwakeChecks: [Date] {
-        rings.filter { $0.kind == .awakeCheck }.reduce(into: [Int: Date]()) { first, ring in
-            if let g = ring.checkGroup, first[g].map({ ring.date < $0 }) ?? true { first[g] = ring.date }
-        }.values.sorted()
-    }
-
-    private func acknowledge(_ id: UUID) {
-        acknowledged.insert(id)
-        storage.save(acknowledged, key: "acknowledged")
-    }
-
-    private func finish(morning: Date, upAt: Date?, skipped: Bool) -> MorningRecord {
-        let record = record(morning: morning, upAt: upAt, skipped: skipped)
-        let mine = rings.filter { $0.morning == morning && $0.kind != .awakeCheck }
-        for ring in mine { AlarmService.cancel(ring.id) }
-        rings.removeAll { mine.contains($0) }
-        storage.save(rings, key: "rings")
-        acknowledged.subtract(mine.map(\.id))
-        storage.save(acknowledged, key: "acknowledged")
-        Task { await sync() }
-        return record
-    }
-
-    @discardableResult
-    private func record(morning: Date, upAt: Date?, skipped: Bool) -> MorningRecord {
-        let deadline = rings.first { $0.morning == morning && $0.kind == .deadline }?.date ?? morning
-        let record = MorningRecord(morning: morning, ideal: morning, deadline: deadline, upAt: upAt, skipped: skipped)
-        records.removeAll { $0.morning == morning }
-        records.append(record)
-        records = Array(records.sorted { $0.morning < $1.morning }.suffix(60))
-        storage.save(records, key: "records")
-        return record
-    }
-
-    private func scheduleAwakeChecks(after solved: Date, morning: Date) async {
-        for (group, dates) in AwakeChecks.plan(solvedAt: solved).enumerated() {
-            for date in dates {
-                let ring = ScheduledRing(date: date, kind: .awakeCheck, level: 0, morning: morning, checkGroup: group)
-                if (try? await AlarmService.schedule(ring)) != nil { rings.append(ring) }
-            }
-        }
-        rings.sort { $0.date < $1.date }
-        storage.save(rings, key: "rings")
-    }
-
-    // MARK: history
-
-    /// "Up by Ideal on 3 of the last 5 mornings." Nil until there's a morning to count.
-    var historyLine: String? {
-        let recent = records.filter { !$0.skipped }.suffix(7)
-        guard !recent.isEmpty else { return nil }
-        let up = recent.filter(\.upByIdeal).count
-        return "Up by Ideal on \(up) of the last \(recent.count) mornings."
-    }
-
-    // MARK: testing
-
-    /// UI-test hooks. `-uitest-reset` clears everything; `-uitest-soon` sets Ideal to the next minute
-    /// with a two-minute window and no nudges.
-    func applyLaunchArguments(_ args: [String]) {
-        if args.contains("-uitest-reset") {
-            AlarmService.cancelAll()
-            storage.removeAll()
-            settings = UserSettings()
-            rings = []
-            records = []
-            skips = SkipLedger()
-            acknowledged = []
-        }
-        if args.contains("-uitest-onboarded") { settings.onboarded = true }
-        if args.contains("-uitest-soon") {
-            let start = Date.now.addingTimeInterval(Calendar.current.component(.second, from: .now) > 35 ? 120 : 60)
-            let c = Calendar.current.dateComponents([.hour, .minute], from: start)
-            let end = Calendar.current.dateComponents([.hour, .minute], from: start.addingTimeInterval(120))
-            settings.times = WakeTimes(ideal: ClockTime(hour: c.hour!, minute: c.minute!),
-                                       deadline: ClockTime(hour: end.hour!, minute: end.minute!))
-            settings.plan = PlanOptions(nudges: false, snoozeMinutes: 3, guardRings: 15)
-            settings.repeatDays = []
-        }
-        storage.save(settings, key: "settings")
-        if let show = args.first(where: { $0.hasPrefix("-uitest-show=") })?.split(separator: "=").last {
-            showDemo(String(show))
+            let alarms = environment.alarms
+            Task { await alarms.stop(id) }
+        case let .sound(command):
+            play(command)
+        case .dismissHomeSheets:
+            sheetDismissals += 1
+        case let .setIdleTimerDisabled(disabled):
+            environment.setIdleTimerDisabled(disabled)
+        case .disableAlarm:
+            disableAlarm()
         }
     }
 
-    /// Screenshot mode: puts a morning screen up with a sample ring that isn't scheduled.
-    private func showDemo(_ name: String) {
-        demo = true
-        let morning = MorningPlan.idealDate(on: .now, times: settings.times, calendar: calendar)
-        let plan = (try? MorningPlan.build(on: .now, times: settings.times, options: settings.plan, calendar: calendar)) ?? []
-        rings = plan.map { ScheduledRing(planned: $0, morning: morning) }
-        let latched = latchedRings(of: morning)
-        let ring = latched.first { $0.kind == .snooze && $0.date.timeIntervalSince(morning) >= 18 * 60 } ?? latched[0]
-        let deadline = latched.first { $0.kind == .deadline } ?? ring
-        demoNow = ring.date
-        switch name {
-        case "ringing": screen = .ringing(ring, sounding: false)
-        case "challenge": screen = .challenge(ring)
-        case "released":
-            screen = .released(MorningRecord(morning: morning, ideal: morning, deadline: deadline.date,
-                                             upAt: morning.addingTimeInterval(12 * 60)))
-        case "night": bedside = true
-        default: break
+    /// Waits until every queued AlarmKit call, and every call those calls led to, has finished.
+    func alarmCallsSettled() async {
+        while let tail = alarmQueue {
+            await tail.value
+            if alarmQueue == tail { return }
         }
+    }
+
+    private func persist() {
+        do {
+            try environment.store.save(engine.state)
+        } catch {
+            modelLog.error("Engine state not saved: \(error.localizedDescription)")
+        }
+    }
+
+    private func enqueueAlarmCall(_ work: @escaping @MainActor (AppModel) async -> Void) {
+        if alarmCallsInFlight == 0 { environment.keepAlive(true) }
+        alarmCallsInFlight += 1
+        let previous = alarmQueue
+        alarmQueue = Task { [weak self] in
+            await previous?.value
+            guard let self else { return }
+            await work(self)
+            alarmCallsInFlight -= 1
+            if alarmCallsInFlight == 0 { environment.keepAlive(false) }
+        }
+    }
+
+    private func schedule(_ ring: Ring) async {
+        var ok = true
+        do {
+            try await environment.alarms.schedule(ring)
+        } catch {
+            ok = false
+            modelLog.error("Schedule \(ring.kind.rawValue) at \(ring.date) failed: \(error.localizedDescription)")
+        }
+        send(.scheduled(ring.id, ok: ok, now: now))
+    }
+
+    private func readSystemTable() async {
+        let table = await environment.alarms.table()
+        systemTable = table
+        send(.systemTable(table, now: now))
+    }
+
+    /// F3 takeover only silences the system alarm when the in-app sound really plays instead. A call, Siri or
+    /// a failed audio session can stop it; then the system alarm keeps ringing. Other silences (a tapped
+    /// button, an open challenge in use) never wait for the sound.
+    private func takeoverIsCovered(_ id: UUID) -> Bool {
+        guard engine.session.takenOver.contains(id) else { return true }
+        resumeSound()
+        return environment.sound.playing != nil
+    }
+
+    /// Starts the sound the engine asked for again if something stopped it (an audio interruption).
+    func resumeSound() {
+        guard case let .play(nudge) = engine.session.sound, environment.sound.playing == nil else { return }
+        environment.sound.play(nudge: nudge)
+        playing = environment.sound.playing
+    }
+
+    private func play(_ command: SoundCommand) {
+        switch command {
+        case let .play(nudge): environment.sound.play(nudge: nudge)
+        case .stop: environment.sound.stop()
+        }
+        playing = environment.sound.playing
+    }
+
+    /// A finished one-off morning turned the alarm off (A4): save that, then tell the engine.
+    private func disableAlarm() {
+        var next = settings
+        next.enabled = false
+        apply(next)
     }
 }

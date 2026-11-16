@@ -11,6 +11,10 @@ struct TomorrowView: View {
     var body: some View {
         NavigationStack {
             List {
+                if let underWay = model.underWay {
+                    Section { UnderWayRow(underWay: underWay) }
+                }
+
                 Section {
                     MorningDial(dates: model.nextMorning?.rings.map(\.date) ?? [], latched: model.settings.enabled)
                         .frame(maxWidth: 260)
@@ -26,7 +30,7 @@ struct TomorrowView: View {
                         .listRowSeparator(.hidden)
                 }
 
-                if !model.alarmsAuthorized {
+                if model.alarmsAuthorized == false {
                     Section {
                         Label("Alarms are off for Wakelatch. Turn them on in Settings.", systemImage: "exclamationmark.triangle")
                         Button("Open Settings") { openSystemSettings() }
@@ -78,10 +82,19 @@ struct TomorrowView: View {
             .sheet(item: $editing) { field in TimeSheet(field: field).presentationDetents([.medium]) }
             .sheet(isPresented: $showSettings) { SettingsView() }
         }
+        // A ring, a challenge or Bedside is coming: close every sheet so the full-screen cover can show (F6).
+        .onChange(of: model.sheetDismissals) { closeSheets() }
+        .onChange(of: model.screen.isShowing) { _, showing in if showing { closeSheets() } }
+    }
+
+    private func closeSheets() {
+        editing = nil
+        showSettings = false
     }
 
     private var title: String {
-        guard let day = model.nextMorning?.day else { return "Alarm off" }
+        // Turning the alarm off mid-morning leaves today's alarm ringing (G2), so never say it is off then.
+        guard let day = model.nextMorning?.day else { return model.underWay == nil ? "Alarm off" : "This morning" }
         if model.calendar.isDateInToday(day) { return "This morning" }
         if model.calendar.isDateInTomorrow(day) { return "Tomorrow" }
         return day.formatted(.dateTime.weekday(.wide))
@@ -94,7 +107,7 @@ struct TomorrowView: View {
             VStack(spacing: 6) {
                 Text("Rings from \(first.date.shortTime) to \(last.date.shortTime) if you don't solve it. \(plan.count) rings.")
                     .foregroundStyle(Theme.graphite)
-                alarmCheck(expected: plan.filter { $0.date > .now }.count)
+                alarmCheck(expected: plan.filter { $0.date > model.now }.count)
             }
             .font(.subheadline.monospacedDigit())
             .frame(maxWidth: .infinity)
@@ -109,10 +122,14 @@ struct TomorrowView: View {
 
     /// What iOS really has scheduled, so a failed hand-off never hides behind the plan.
     @ViewBuilder private func alarmCheck(expected: Int) -> some View {
-        if let error = model.scheduleError {
+        // With alarms off, the section above says so; failed schedules are expected then. Nothing is said
+        // before the permission has been read.
+        if model.alarmsAuthorized != true {
+            EmptyView()
+        } else if let error = model.scheduleError {
             Label(error, systemImage: "exclamationmark.triangle").foregroundStyle(Theme.face)
                 .accessibilityIdentifier("tomorrow.alarmCheck")
-        } else if model.alarmsAuthorized, !model.syncing, let confirmed = model.confirmedNextRings {
+        } else if !model.syncing, let confirmed = model.confirmedNextRings {
             if confirmed >= expected {
                 Label("All \(confirmed) set with iOS", systemImage: "checkmark")
                     .foregroundStyle(Theme.graphite)
@@ -128,6 +145,23 @@ struct TomorrowView: View {
 
     private var repeatFooter: String {
         model.settings.repeatDays.isEmpty ? "Rings once, then turns off." : "Rings on the highlighted days."
+    }
+}
+
+/// Today's morning has started (D3): it rings on as planned, and edits apply from the next morning.
+private struct UnderWayRow: View {
+    let underWay: UnderWay
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Morning under way").font(.headline)
+            Text("Deadline \(underWay.deadline.shortTime). It rings until \(underWay.endsBy.shortTime) unless you solve the challenge. Changes apply from tomorrow.")
+                .font(.subheadline.monospacedDigit())
+                .foregroundStyle(Theme.graphite)
+        }
+        .padding(.vertical, 4)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("tomorrow.underWay")
     }
 }
 
@@ -240,7 +274,9 @@ struct TimeSheet: View {
             .navigationTitle(field.title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }.accessibilityIdentifier("time.cancel")
+                }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { save() }.accessibilityIdentifier("time.done")
                 }

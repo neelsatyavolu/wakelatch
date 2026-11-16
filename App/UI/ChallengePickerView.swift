@@ -4,6 +4,8 @@ import WakelatchCore
 struct ChallengePickerView: View {
     @Environment(AppModel.self) private var model
     let slot: ChallengeSlot
+    /// Kinds this phone can run. Read again after each permission prompt, so a refusal shows at once.
+    @State private var usable = Self.usableKinds()
 
     private var selected: ChallengeKind {
         slot == .snooze ? model.settings.snoozeChallenge : model.settings.deadlineChallenge
@@ -15,11 +17,9 @@ struct ChallengePickerView: View {
         List {
             Section {
                 ForEach(ChallengeKind.allCases) { kind in
-                    let available = Capabilities.supports(kind)
+                    let available = usable.contains(kind)
                     Button {
-                        model.update {
-                            if slot == .snooze { $0.snoozeChallenge = kind } else { $0.deadlineChallenge = kind }
-                        }
+                        Task { await choose(kind) }
                     } label: {
                         HStack(spacing: 14) {
                             Image(systemName: kind.symbol)
@@ -55,5 +55,21 @@ struct ChallengePickerView: View {
         .background(Theme.enamel)
         .navigationTitle(slot == .snooze ? "Before the deadline" : "At the deadline")
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear { usable = Self.usableKinds() }
+    }
+
+    /// Asks for the camera or motion permission now, not during the alarm (fix 6). A refused kind is
+    /// not chosen; if it is refused later, the morning's challenge falls back to math.
+    private func choose(_ kind: ChallengeKind) async {
+        let granted = await Capabilities.requestAccess(kind)
+        usable = Self.usableKinds()
+        guard granted else { return }
+        model.update {
+            if slot == .snooze { $0.snoozeChallenge = kind } else { $0.deadlineChallenge = kind }
+        }
+    }
+
+    private static func usableKinds() -> Set<ChallengeKind> {
+        Set(ChallengeKind.allCases.filter(Capabilities.supports))
     }
 }

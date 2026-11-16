@@ -41,7 +41,7 @@ public enum ChallengeKind: String, Codable, CaseIterable, Sendable, Identifiable
     public func summary(level: Int) -> String {
         let l = min(max(level, 1), 3)
         switch self {
-        case .math: return ["Two numbers to add", "Three numbers to add", "Two problems, one multiplication"][l - 1]
+        case .math: return ["Two numbers to add", "Three numbers to add", "Two multiplication problems"][l - 1]
         case .phrase: return ["A short sentence", "A longer sentence", "A long sentence"][l - 1]
         case .eyesOpen: return "Keep your eyes open for \(goal(level: l)) seconds"
         case .steps: return "Walk \(goal(level: l)) steps"
@@ -155,10 +155,20 @@ public struct SkipLedger: Codable, Hashable, Sendable {
 
     public init() {}
 
+    /// Skips left in `date`'s month. Months are Gregorian in `calendar`'s time zone, whatever calendar system
+    /// the device uses, so switching calendars never resets the count (K2).
     public func remaining(at date: Date, calendar: Calendar) -> Int {
-        let month = calendar.dateComponents([.year, .month], from: date)
-        let usedThisMonth = used.filter { calendar.dateComponents([.year, .month], from: $0) == month }.count
+        let months = Self.monthCalendar(calendar)
+        let month = months.dateComponents([.year, .month], from: date)
+        let usedThisMonth = used.filter { months.dateComponents([.year, .month], from: $0) == month }.count
         return max(0, Self.perMonth - usedThisMonth)
+    }
+
+    /// The Gregorian calendar in `calendar`'s time zone, which skip months are counted in.
+    public static func monthCalendar(_ calendar: Calendar) -> Calendar {
+        var gregorian = Calendar(identifier: .gregorian)
+        gregorian.timeZone = calendar.timeZone
+        return gregorian
     }
 
     /// Records a skip if one is left. Returns false when none remain.

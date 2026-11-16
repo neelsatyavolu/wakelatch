@@ -6,14 +6,19 @@ import WakelatchCore
 // MARK: Eyes open (TrueDepth face tracking)
 
 struct EyesOpenChallengeView: View {
+    @Environment(AppModel.self) private var model
     let level: Int
     let onDone: () -> Void
+    /// The camera was refused or failed: the engine switches this challenge to math (C4).
+    let onUnavailable: () -> Void
     @State private var tracker: EyesOpenTracker
     @State private var faceVisible = false
+    @State private var latch = OnceLatch()
 
-    init(level: Int, onDone: @escaping () -> Void) {
+    init(level: Int, onDone: @escaping () -> Void, onUnavailable: @escaping () -> Void) {
         self.level = level
         self.onDone = onDone
+        self.onUnavailable = onUnavailable
         _tracker = State(initialValue: EyesOpenTracker(goal: Double(ChallengeKind.eyesOpen.goal(level: level))))
     }
 
@@ -25,11 +30,14 @@ struct EyesOpenChallengeView: View {
                     switch sample {
                     case let .face(time, left, right):
                         faceVisible = true
+                        model.challengeActivity()
                         tracker.update(time: time, leftBlink: left, rightBlink: right)
-                        if tracker.isDone { onDone() }
+                        if tracker.isDone { latch.fire(onDone) }
                     case .lost:
                         faceVisible = false
                         tracker.faceLost()
+                    case .failed:
+                        latch.fire(onUnavailable)
                     }
                 }
                 .clipShape(.circle)
@@ -55,6 +63,8 @@ struct EyesOpenChallengeView: View {
 enum FaceSample: Sendable {
     case face(time: Double, left: Double, right: Double)
     case lost
+    /// The session failed, for example because camera access was refused.
+    case failed
 }
 
 /// Front camera preview that reports eye blink weights.
@@ -99,52 +109,73 @@ struct FaceCameraView: UIViewRepresentable {
             let send = onSample
             Task { @MainActor in send(.lost) }
         }
+
+        nonisolated func session(_ session: ARSession, didFailWithError error: any Error) {
+            let send = onSample
+            Task { @MainActor in send(.failed) }
+        }
     }
 }
 
 // MARK: Steps
 
 struct StepsChallengeView: View {
+    @Environment(AppModel.self) private var model
     let level: Int
     let onDone: () -> Void
+    /// Motion access was refused or the pedometer failed: the engine switches this challenge to math (C4).
+    let onUnavailable: () -> Void
     @State private var steps = 0
     @State private var pedometer = CMPedometer()
-    @State private var failed = false
+    @State private var latch = OnceLatch()
 
     var body: some View {
         let goal = ChallengeKind.steps.goal(level: level)
-        CounterChallengeView(title: "Walk", detail: failed
-                             ? "Motion access is off. Turn it on in Settings > Wakelatch, or use the emergency skip."
-                             : "Get out of bed and walk around with the phone.",
+        CounterChallengeView(title: "Walk", detail: "Get out of bed and walk around with the phone.",
                              count: steps, goal: goal, unit: "steps")
             .accessibilityIdentifier("challenge.steps")
             .onAppear {
                 pedometer.startUpdates(from: .now) { data, error in
                     let count = data?.numberOfSteps.intValue
-                    Task { @MainActor in
-                        if error != nil { failed = true }
-                        if let count {
-                            steps = count
-                            if count >= goal { onDone() }
-                        }
-                    }
+                    let failed = error != nil
+                    Task { @MainActor in update(count: count, failed: failed, goal: goal) }
                 }
             }
             .onDisappear { pedometer.stopUpdates() }
+    }
+
+    private func update(count: Int?, failed: Bool, goal: Int) {
+        if failed {
+            pedometer.stopUpdates()
+            latch.fire(onUnavailable)
+            return
+        }
+        guard let count else { return }
+        if count > steps { model.challengeActivity() }
+        steps = count
+        if count >= goal {
+            pedometer.stopUpdates()
+            latch.fire(onDone)
+        }
     }
 }
 
 // MARK: Shake
 
 struct ShakeChallengeView: View {
+    @Environment(AppModel.self) private var model
     let level: Int
     let onDone: () -> Void
+    /// No accelerometer: the engine switches this challenge to math (C4).
+    let onUnavailable: () -> Void
     @State private var counter: ShakeCounter
     @State private var motion = CMMotionManager()
+    @State private var latch = OnceLatch()
 
-    init(level: Int, onDone: @escaping () -> Void) {
+    init(level: Int, onDone: @escaping () -> Void, onUnavailable: @escaping () -> Void) {
         self.level = level
         self.onDone = onDone
+        self.onUnavailable = onUnavailable
         _counter = State(initialValue: ShakeCounter(goal: ChallengeKind.shake.goal(level: level)))
     }
 
@@ -153,17 +184,33 @@ struct ShakeChallengeView: View {
                              count: counter.count, goal: counter.goal, unit: "shakes")
             .accessibilityIdentifier("challenge.shake")
             .sensoryFeedback(.impact(weight: .light), trigger: counter.count)
+            .onChange(of: counter.count) { model.challengeActivity() }
             .onAppear {
+                guard motion.isAccelerometerAvailable else { return latch.fire(onUnavailable) }
                 motion.accelerometerUpdateInterval = 1.0 / 50
                 motion.startAccelerometerUpdates(to: .main) { data, _ in
                     guard let a = data?.acceleration else { return }
                     let magnitude = (a.x * a.x + a.y * a.y + a.z * a.z).squareRoot()
                     MainActor.assumeIsolated {
                         counter.add(magnitude: magnitude)
-                        if counter.isDone { onDone() }
+                        guard counter.isDone else { return }
+                        motion.stopAccelerometerUpdates()
+                        latch.fire(onDone)
                     }
                 }
             }
             .onDisappear { motion.stopAccelerometerUpdates() }
+    }
+}
+
+/// Lets a sensor challenge report its result once, however many samples arrive after it (fix 15).
+@MainActor
+final class OnceLatch {
+    private(set) var fired = false
+
+    func fire(_ action: () -> Void) {
+        guard !fired else { return }
+        fired = true
+        action()
     }
 }

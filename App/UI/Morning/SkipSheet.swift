@@ -5,7 +5,7 @@ import WakelatchCore
 struct SkipSheet: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
-    let ring: ScheduledRing
+    let ring: Ring
     @State private var text = ""
 
     var body: some View {
@@ -40,7 +40,9 @@ struct SkipSheet: View {
             .navigationTitle("Emergency skip")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }.accessibilityIdentifier("skip.cancel")
+                }
             }
         }
         .preferredColorScheme(.dark)

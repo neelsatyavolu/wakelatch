@@ -5,7 +5,6 @@ import XCTest
 @MainActor
 final class ScreenshotTests: XCTestCase {
     private let app = XCUIApplication()
-    private let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
 
     override func setUp() async throws {
         continueAfterFailure = true
@@ -41,7 +40,9 @@ final class ScreenshotTests: XCTestCase {
 
     private func shoot(_ name: String, args: [String], prepare: (() -> Void)? = nil) {
         app.terminate()
-        app.launchArguments = args
+        // Simulated alarms: a real AlarmKit alarm set here would ring later, or crash SpringBoard with the
+        // silent sound (see MorningUITestCase).
+        app.launchArguments = ["-uitest-silent", "-uitest-simulated-alarms"] + args
         app.launch()
         sleep(2)
         prepare?()
@@ -50,14 +51,4 @@ final class ScreenshotTests: XCTestCase {
         try? XCUIScreen.main.screenshot().pngRepresentation.write(to: URL(fileURLWithPath: "\(dir)/\(name).png"))
     }
 
-    private func allowIfAsked() {
-        for _ in 0..<5 {
-            for allow in [app.buttons["Allow"], springboard.buttons["Allow"]] where allow.exists {
-                allow.tap()
-                return
-            }
-            app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.04)).tap()
-            sleep(1)
-        }
-    }
 }

@@ -5,13 +5,25 @@ import WakelatchCore
 struct ChallengeHostView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dynamicTypeSize) private var typeSize
-    let ring: ScheduledRing
+    /// The engine's challenge: the ring's snapshotted kind at its level (C1, C3).
+    let challenge: ActiveChallenge
     @State private var showSkip = false
+    /// Checked once per challenge (the view is keyed by it): the sensor exists and its permission was given.
+    @State private var runnable: Bool
 
-    private var kind: ChallengeKind {
-        let chosen = model.settings.challenge(for: ring)
-        return Capabilities.supports(chosen) ? chosen : .math
+    init(challenge: ActiveChallenge) {
+        self.challenge = challenge
+        _runnable = State(initialValue: Capabilities.canRunNow(challenge.kind))
     }
+
+    private var ring: Ring { challenge.ring }
+
+    /// The engine's kind. One this phone can't run now (no sensor, or permission not given) is shown as
+    /// math, and the engine is told so it switches the challenge to math as well (C4).
+    private var kind: ChallengeKind { runnable ? challenge.kind : .math }
+
+    /// The sensor failed or permission was refused while the challenge ran.
+    private func unavailable() { model.challengeUnavailable(challenge.kind) }
 
     var body: some View {
         ScrollView {
@@ -23,7 +35,7 @@ struct ChallengeHostView: View {
                     .font(.subheadline.monospacedDigit())
                     .foregroundStyle(Theme.graphite)
                     .multilineTextAlignment(.center)
-                challenge
+                challengeView
             }
             .padding(.horizontal, 24)
             .padding(.bottom, 24)
@@ -41,6 +53,9 @@ struct ChallengeHostView: View {
                 .accessibilityIdentifier("challenge.skip")
         }
         .sheet(isPresented: $showSkip) { SkipSheet(ring: ring) }
+        .onAppear {
+            if kind != challenge.kind { unavailable() }
+        }
     }
 
     private var ringLine: String {
@@ -48,20 +63,23 @@ struct ChallengeHostView: View {
         return "Ring \(p.number) of \(p.total)" + (p.deadline.map { ". Deadline \($0.shortTime)." } ?? ".")
     }
 
-    @ViewBuilder private var challenge: some View {
+    /// The level is the engine's (the ring's), never a setting read now.
+    @ViewBuilder private var challengeView: some View {
         let done = { model.solved(ring) }
+        let level = challenge.level
         switch kind {
-        case .math: MathChallengeView(level: ring.level, onDone: done)
-        case .phrase: PhraseChallengeView(level: ring.level, onDone: done)
-        case .eyesOpen: EyesOpenChallengeView(level: ring.level, onDone: done)
-        case .steps: StepsChallengeView(level: ring.level, onDone: done)
-        case .shake: ShakeChallengeView(level: ring.level, onDone: done)
+        case .math: MathChallengeView(level: level, onDone: done)
+        case .phrase: PhraseChallengeView(level: level, onDone: done)
+        case .eyesOpen: EyesOpenChallengeView(level: level, onDone: done, onUnavailable: unavailable)
+        case .steps: StepsChallengeView(level: level, onDone: done, onUnavailable: unavailable)
+        case .shake: ShakeChallengeView(level: level, onDone: done, onUnavailable: unavailable)
         }
     }
 }
 
 /// Answer field + slab, shared by the typed challenges.
 private struct AnswerField: View {
+    @Environment(AppModel.self) private var model
     let prompt: String
     @Binding var text: String
     var keyboard: UIKeyboardType = .numberPad
@@ -79,68 +97,82 @@ private struct AnswerField: View {
             .background(Theme.face.opacity(0.08), in: .rect(cornerRadius: Theme.radius))
             .focused($focused)
             .onAppear { focused = true }
+            // Typing keeps the challenge in use, so it silences the rings that come while it is open (F4).
+            .onChange(of: text) { model.challengeActivity() }
             .accessibilityIdentifier("challenge.answer")
     }
 }
 
+/// Math from the core `MathSession`: it checks once the answer is long enough, and every wrong answer
+/// gives a new problem and feedback (M2-M5). `onDone` runs once, on `.done`.
 struct MathChallengeView: View {
-    let level: Int
     let onDone: () -> Void
-    @State private var problem: MathChallenge
-    @State private var solvedCount = 0
-    @State private var answer = ""
-    @State private var wrong = false
+    @State private var session: MathSession
+    /// The step the last check gave, for the feedback line.
+    @State private var last: MathSession.Step = .pending
+    /// What the field shows. Kept apart from the session and cleared after each check from `onChange`:
+    /// clearing it from inside the field's own binding setter sometimes left the typed digits on screen,
+    /// and they were joined to the next answer (U14).
+    @State private var text = ""
 
     init(level: Int, onDone: @escaping () -> Void) {
-        self.level = level
         self.onDone = onDone
         var rng = SystemRandomNumberGenerator()
-        _problem = State(initialValue: MathChallenge.make(level: level, using: &rng))
+        _session = State(initialValue: MathSession(level: level, using: &rng))
     }
-
-    private var goal: Int { ChallengeKind.math.goal(level: level) }
 
     var body: some View {
         VStack(spacing: 20) {
-            Text(goal > 1 ? "Problem \(solvedCount + 1) of \(goal)" : "Solve to stop")
+            Text(session.headline)
                 .font(.title2.weight(.semibold))
                 .accessibilityIdentifier("challenge.headline")
-            Text(problem.prompt)
+            Text(session.problem.prompt)
                 .font(.system(.largeTitle).weight(.bold).monospacedDigit())
                 .minimumScaleFactor(0.6)
                 .lineLimit(1)
-                .accessibilityLabel("What is \(problem.prompt)?")
+                .accessibilityLabel("What is \(session.problem.prompt)?")
                 .accessibilityIdentifier("challenge.problem")
-            AnswerField(prompt: "Answer", text: $answer)
-            Text(wrong ? "Not it. New problem." : " ")
+            AnswerField(prompt: "Answer", text: $text)
+                .onChange(of: text) { _, typed in enter(typed) }
+            Text(last == .wrong ? missLine : " ")
                 .foregroundStyle(Theme.graphite)
-                .accessibilityHidden(!wrong)
-            Button("Submit answer", action: submit)
+                .accessibilityHidden(last != .wrong)
+                .accessibilityIdentifier("challenge.feedback")
+            Button("Submit answer") {
+                take { session.submit(using: &$0) }
+                text = session.answer
+            }
                 .buttonStyle(.slab)
-                .disabled(answer.isEmpty)
+                .disabled(session.answer.isEmpty || session.isDone)
                 .accessibilityIdentifier("challenge.submit")
         }
-        .sensoryFeedback(.error, trigger: wrong) { _, new in new }
-        // Check as soon as the answer has as many digits as the right one; no reaching for Submit.
-        .onChange(of: answer) { _, typed in
-            if typed.count >= String(problem.answer).count { submit() }
-        }
+        // Every miss, not only the first (fix 19).
+        .sensoryFeedback(.error, trigger: session.misses)
     }
 
-    private func submit() {
+    /// Changes with every miss, so a second wrong answer reads differently from the first (fix 19).
+    private var missLine: String {
+        session.misses > 1 ? "Not it again (\(session.misses) wrong). New problem." : "Not it. New problem."
+    }
+
+    /// Typing goes into the session, which checks it once it has as many digits as the answer. A check
+    /// empties the session's answer, and the field follows.
+    private func enter(_ typed: String) {
+        guard typed != session.answer else { return }
+        take { session.enter(typed, using: &$0) }
+        if text != session.answer { text = session.answer }
+    }
+
+    private func take(_ step: (inout SystemRandomNumberGenerator) -> MathSession.Step) {
         var rng = SystemRandomNumberGenerator()
-        // Later problems in a set use multiplication.
-        let nextLevel = solvedCount + 1 < goal ? level : max(level, 3)
-        if problem.check(answer) {
-            solvedCount += 1
-            wrong = false
-            if solvedCount >= goal { onDone(); return }
-            problem = MathChallenge.make(level: nextLevel, using: &rng)
-        } else {
-            wrong = true
-            problem = MathChallenge.make(level: level, using: &rng)
+        let result = step(&rng)
+        switch result {
+        case .pending, .ignored: return
+        case .wrong, .correct: last = result
+        case .done:
+            last = result
+            onDone()
         }
-        answer = ""
     }
 }
 
@@ -150,6 +182,7 @@ struct PhraseChallengeView: View {
     @State private var challenge: PhraseChallenge
     @State private var text = ""
     @State private var wrong = false
+    @State private var latch = OnceLatch()
 
     init(level: Int, onDone: @escaping () -> Void) {
         self.level = level
@@ -167,7 +200,7 @@ struct PhraseChallengeView: View {
             AnswerField(prompt: "Type it here", text: $text, keyboard: .default, axis: .vertical)
             if wrong { Text("Not quite. Check each word.").foregroundStyle(Theme.graphite) }
             Button("Submit") {
-                if challenge.check(text) { onDone() } else { wrong = true }
+                if challenge.check(text) { latch.fire(onDone) } else { wrong = true }
             }
             .buttonStyle(.slab)
             .disabled(text.isEmpty)

@@ -14,64 +14,25 @@ struct UserSettings: Codable, Equatable {
     var bedsideKeepsScreenOn = true
     var onboarded = false
 
-    func challenge(for ring: ScheduledRing) -> ChallengeKind {
-        ring.level >= 3 ? deadlineChallenge : snoozeChallenge
+    /// The settings as the engine takes them, with any UI-test timing and pinned morning applied.
+    func engineSettings(test: TestOptions?) -> EngineSettings {
+        let production = PlanTiming.production(plan)
+        return EngineSettings(times: times, repeatDays: repeatDays, enabled: enabled,
+                              timing: test?.timing(production: production) ?? production,
+                              snoozeChallenge: snoozeChallenge, deadlineChallenge: deadlineChallenge,
+                              awakeChecks: test?.awakeChecks ?? awakeChecks, keepScreenOn: bedsideKeepsScreenOn,
+                              pinnedMorning: test?.pinnedIdeal)
     }
 }
 
-/// One alarm handed to AlarmKit, with what Wakelatch needs to know about it.
-struct ScheduledRing: Codable, Hashable, Identifiable {
-    enum Kind: String, Codable {
-        case nudge, main, snooze, deadline, guardRing, awakeCheck
-    }
-
-    let id: UUID
-    let date: Date
-    let kind: Kind
-    let level: Int
-    /// Ideal time of the morning this ring belongs to.
-    let morning: Date
-    /// For awake checks: which check (0, 1) the ring belongs to.
-    var checkGroup: Int?
-
-    var latched: Bool { kind != .nudge && kind != .awakeCheck }
-    var allowsSnooze: Bool { kind == .main || kind == .snooze }
-
-    init(id: UUID = UUID(), date: Date, kind: Kind, level: Int, morning: Date, checkGroup: Int? = nil) {
-        self.id = id
-        self.date = date
-        self.kind = kind
-        self.level = level
-        self.morning = morning
-        self.checkGroup = checkGroup
-    }
-
-    init(planned: PlannedRing, morning: Date) {
-        let kind: Kind = switch planned.kind {
-        case .nudge: .nudge
-        case .main: .main
-        case .snooze: .snooze
-        case .deadline: .deadline
-        case .guardRing: .guardRing
-        }
-        self.init(date: planned.date, kind: kind, level: planned.level, morning: morning)
-    }
-}
-
-/// How a morning went, for the history line.
-struct MorningRecord: Codable, Hashable {
-    let morning: Date
-    let ideal: Date
-    let deadline: Date
-    var upAt: Date?
-    var skipped = false
-
-    var upByIdeal: Bool { upAt.map { $0 <= ideal.addingTimeInterval(5 * 60) } ?? false }
-    var upByDeadline: Bool { upAt.map { $0 <= deadline.addingTimeInterval(60) } ?? false }
-}
-
-/// JSON-in-UserDefaults storage for the few things Wakelatch keeps.
+/// JSON-in-UserDefaults storage for settings and UI-test options.
 struct Storage {
+    static let settingsKey = "settings"
+    /// UI tests only: how many alert-button intents reached the app (`DebugState.intents`).
+    static let intentsKey = "uitestIntents"
+    /// Keys written by builds before the morning engine. Read once by `LegacyMigration`, then removed.
+    static let legacyKeys = ["rings", "records", "skips", "acknowledged"]
+
     private let defaults: UserDefaults
 
     init(defaults: UserDefaults = .standard) {
@@ -87,7 +48,11 @@ struct Storage {
         if let data = try? JSONEncoder().encode(value) { defaults.set(data, forKey: key) }
     }
 
+    func remove(_ keys: [String]) {
+        for key in keys { defaults.removeObject(forKey: key) }
+    }
+
     func removeAll() {
-        for key in ["settings", "rings", "records", "skips", "acknowledged"] { defaults.removeObject(forKey: key) }
+        remove([Self.settingsKey, TestOptions.storageKey, Self.intentsKey] + Self.legacyKeys)
     }
 }
